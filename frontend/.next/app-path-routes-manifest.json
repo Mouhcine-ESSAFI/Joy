@@ -1,0 +1,20 @@
+{
+  "/_not-found/page": "/_not-found",
+  "/favicon.ico/route": "/favicon.ico",
+  "/admin/settings/room-rules/page": "/admin/settings/room-rules",
+  "/admin/profile/page": "/admin/profile",
+  "/admin/integrations/page": "/admin/integrations",
+  "/admin/tour-mapping/page": "/admin/tour-mapping",
+  "/admin/settings/transport/page": "/admin/settings/transport",
+  "/admin/users/edit/[userId]/page": "/admin/users/edit/[userId]",
+  "/admin/users/new/page": "/admin/users/new",
+  "/calendar/page": "/calendar",
+  "/login/page": "/login",
+  "/admin/users/page": "/admin/users",
+  "/orders/page": "/orders",
+  "/customers/page": "/customers",
+  "/page": "/",
+  "/orders/[orderId]/page": "/orders/[orderId]",
+  "/dashboard/page": "/dashboard",
+  "/orders/new/page": "/orders/new"
+}

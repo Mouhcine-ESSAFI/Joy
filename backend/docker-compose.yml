@@ -1,0 +1,29 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: joy_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mouhcineessafi
+      POSTGRES_PASSWORD: password123
+      POSTGRES_DB: joy_morocco
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  backend:
+    build: .
+    container_name: joy_backend
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    env_file:
+      - .env.production
+    ports:
+      - "3100:3100"
+
+volumes:
+  postgres_data:

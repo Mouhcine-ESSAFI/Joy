@@ -1,0 +1,194 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user in the Joy UI platform.",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "role": { "type": "string", "enum": ["Admin", "Travel Agent", "Driver", "Finance"] },
+        "accessibleShopifyStores": { "type": "array", "items": { "type": "string" }},
+        "status": { "type": "string", "enum": ["active", "inactive"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "permissions": {
+            "type": "object"
+        }
+      },
+      "required": ["id", "name", "email", "role", "status", "createdAt"]
+    },
+    "ShopifyStore": {
+      "title": "ShopifyStore",
+      "type": "object",
+      "description": "Represents a Shopify store integrated with the Joy UI platform.",
+      "properties": {
+        "id": { "type": "string" },
+        "internalName": { "type": "string" },
+        "shopifyDomain": { "type": "string" },
+        "apiVersion": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "inactive"] }
+      },
+      "required": ["id", "internalName", "shopifyDomain", "status"]
+    },
+    "Order": {
+      "title": "Order",
+      "type": "object",
+      "description": "Represents a single tour line item from a Shopify order.",
+      "properties": {
+        "id": { "type": "string" },
+        "shopifyOrderId": { "type": "string" },
+        "shopifyOrderNumber": { "type": "string" },
+        "shopifyLineItemId": { "type": "string" },
+        "lineItemIndex": { "type": "number" },
+        "storeId": { "type": "string" },
+        "customerName": { "type": "string" },
+        "customerEmail": { "type": "string", "format": "email"},
+        "customerPhone": { "type": "string" },
+        "tourDate": { "type": "string", "format": "date" },
+        "tourHour": { "type": "string", "format": "time" },
+        "tourTitle": { "type": "string" },
+        "tourCode": { "type": "string" },
+        "tourType": { "type": "string", "enum": ["Shared", "Private"] },
+        "campType": { "type": "string" },
+        "roomType": { "type": "string" },
+        "accommodationName": { "type": "string" },
+        "pickupLocation": { "type": "string" },
+        "pax": { "type": "number" },
+        "lineItemPrice": { "type": "number" },
+        "lineItemDiscount": { "type": "number" },
+        "shopifyTotalAmount": { "type": "number" },
+        "originalTotalAmount": { "type": "number" },
+        "depositAmount": { "type": "number" },
+        "balanceAmount": { "type": "number" },
+        "currency": { "type": "string" },
+        "status": { "type": "string", "enum": ["New", "Updated", "Validate", "Completed", "Partial Refund", "Canceled"] },
+        "transportCode": { "type": "string" },
+        "driverName": { "type": "string" },
+        "note": { "type": "string" },
+        "financialStatus": { "type": "string" },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "shopifyOrderId", "shopifyLineItemId", "lineItemIndex", "storeId", "customerName", "tourTitle", "pax", "lineItemPrice", "status", "createdAt", "updatedAt"]
+    },
+    "Supplement": {
+      "title": "Supplement",
+      "type": "object",
+      "description": "Represents a supplement added to an order.",
+      "properties": {
+        "id": { "type": "string" },
+        "orderId": { "type": "string" },
+        "label": { "type": "string" },
+        "amount": { "type": "number" },
+        "createdBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "orderId", "label", "amount", "createdBy", "createdAt"]
+    },
+    "TourCodeMapping": {
+      "title": "TourCodeMapping",
+      "type": "object",
+      "description": "Mapping between Shopify Product and Tour code",
+      "properties": {
+        "id": { "type": "string" },
+        "storeId": { "type": "string" },
+        "shopifyProductId": { "type": "string" },
+        "productTitle": { "type": "string" },
+        "productSku": { "type": "string" },
+        "tourCode": { "type": "string" }
+      },
+      "required": ["id", "storeId", "shopifyProductId"]
+    },
+    "RoomTypeRule": {
+      "title": "RoomTypeRule",
+      "type": "object",
+      "description": "Defines a rule for assigning room types based on passenger count.",
+      "properties": {
+        "id": { "type": "string" },
+        "paxMin": { "type": "number" },
+        "paxMax": { "type": "number" },
+        "defaultRoomType": { "type": "string" },
+        "allowedRoomTypes": { "type": "array", "items": { "type": "string" } },
+        "isActive": { "type": "boolean" }
+      },
+      "required": ["id", "paxMin", "paxMax", "defaultRoomType", "isActive"]
+    },
+    "TransportType": {
+      "title": "TransportType",
+      "type": "object",
+      "description": "Represents a type of transport used for orders.",
+      "properties": {
+        "id": { "type": "string" },
+        "code": { "type": "string" },
+        "name": { "type": "string" },
+        "isActive": { "type": "boolean" }
+      },
+      "required": ["id", "code", "name", "isActive"]
+    },
+    "ShopifyCustomer": {
+        "title": "ShopifyCustomer",
+        "type": "object",
+        "description": "Represents a customer synced from a Shopify store.",
+        "properties": {
+            "id": { "type": "string", "description": "The customer ID from Shopify." },
+            "firstName": { "type": "string" },
+            "lastName": { "type": "string" },
+            "email": { "type": "string", "format": "email" },
+            "phone": { "type": "string" },
+            "storeId": { "type": "string", "description": "The internal name of the Shopify store this customer belongs to." },
+            "location": { "type": "string", "description": "e.g., 'City, Country'" },
+            "postalCode": { "type": "string" },
+            "totalOrders": { "type": "number" },
+            "amountSpent": { "type": "number" },
+            "note": { "type": "string" },
+            "tags": { "type": "array", "items": { "type": "string" } },
+            "emailSubscription": { "type": "string", "enum": ["subscribed", "unsubscribed", "pending"] },
+            "smsSubscription": { "type": "string", "enum": ["subscribed", "unsubscribed", "pending"] },
+            "taxExempt": { "type": "boolean" },
+            "language": { "type": "string" },
+            "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp of when the customer was first created in Shopify." },
+            "updatedAt": { "type": "string", "format": "date-time", "description": "Timestamp of when the customer was last updated in Shopify." }
+        },
+        "required": ["id", "storeId", "firstName", "lastName", "email"]
+    }
+  },
+  "auth": {
+    "providers": ["password"]
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Stores user profile information."
+    },
+    "/orders/{orderId}": {
+      "schema": { "$ref": "#/entities/Order" },
+      "description": "Stores individual tour line items."
+    },
+    "/orders/{orderId}/supplements/{supplementId}": {
+        "schema": { "$ref": "#/entities/Supplement" },
+        "description": "Sub-collection for supplements attached to an order."
+    },
+    "/shopifyStores/{storeId}": {
+        "schema": { "$ref": "#/entities/ShopifyStore" },
+        "description": "Configuration for connected Shopify stores."
+    },
+    "/tourCodeMappings/{mappingId}": {
+        "schema": { "$ref": "#/entities/TourCodeMapping" },
+        "description": "Mappings from Shopify products to internal tour codes."
+    },
+    "/roomTypeRules/{ruleId}": {
+        "schema": { "$ref": "#/entities/RoomTypeRule" },
+        "description": "Rules for automatic room type assignment based on PAX."
+    },
+    "/transportTypes/{typeId}": {
+        "schema": { "$ref": "#/entities/TransportType" },
+        "description": "Available transport companies."
+    },
+    "/shopifyCustomers/{customerId}": {
+        "schema": { "$ref": "#/entities/ShopifyCustomer" },
+        "description": "Stores customer data synced from Shopify."
+    }
+  }
+}

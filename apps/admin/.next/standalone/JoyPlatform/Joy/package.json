@@ -1,0 +1,15 @@
+{
+  "name": "joy-platform",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:booking": "npm run dev --workspace=apps/booking",
+    "dev:admin": "npm run dev --workspace=apps/admin",
+    "build:booking": "npm run build --workspace=apps/booking",
+    "build:admin": "npm run build --workspace=apps/admin",
+    "build": "npm run build --workspaces --if-present"
+  }
+}
