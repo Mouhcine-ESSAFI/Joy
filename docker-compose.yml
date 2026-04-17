@@ -1,4 +1,15 @@
+version: '3.9'
+
+networks:
+  joy-net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+
 services:
+
+  # ── PostgreSQL ──────────────────────────────────────────────────────────────
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
@@ -8,48 +19,91 @@ services:
       POSTGRES_DB: ${DB_DATABASE}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+    networks:
+      - joy-net
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_DATABASE}"]
       interval: 10s
       timeout: 5s
       retries: 5
 
+  # ── Backend (NestJS) ────────────────────────────────────────────────────────
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     restart: unless-stopped
-    env_file: ./backend/.env
-    environment:
-      DB_HOST: postgres
-    ports:
-      - "3100:3100"
     depends_on:
       postgres:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3100/health || exit 1"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://backend:3100}
-    restart: unless-stopped
     environment:
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://backend:3100}
-      NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${NEXT_PUBLIC_VAPID_PUBLIC_KEY}
+      NODE_ENV: production
+      PORT: 3100
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_DATABASE: ${DB_DATABASE}
+      JWT_SECRET: ${JWT_SECRET}
+      FRONTEND_URL: ${FRONTEND_URL}
+      VAPID_SUBJECT: ${VAPID_SUBJECT}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY}
+    networks:
+      - joy-net
     ports:
-      - "3110:3110"
+      - "3100:3100"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3100/health >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 5
+
+  # ── Booking App (Next.js) ───────────────────────────────────────────────────
+  booking:
+    build:
+      context: .
+      dockerfile: Dockerfile.booking
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+        NEXT_PUBLIC_BOOKING_HOST: ${NEXT_PUBLIC_BOOKING_HOST}
+        NEXT_PUBLIC_ADMIN_HOST: ${NEXT_PUBLIC_ADMIN_HOST}
+        NEXT_PUBLIC_VAPID_KEY: ${VAPID_PUBLIC_KEY}
+    restart: unless-stopped
     depends_on:
       backend:
         condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 9010
+      HOSTNAME: 0.0.0.0
+      # Server-side rewrite proxy — uses internal Docker network (no external roundtrip)
+      API_URL: http://backend:3100
+    networks:
+      - joy-net
+    ports:
+      - "9010:9010"
 
-volumes:
-  postgres_data:
+  # ── Admin App (Next.js) ─────────────────────────────────────────────────────
+  admin:
+    build:
+      context: .
+      dockerfile: Dockerfile.admin
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+        NEXT_PUBLIC_BOOKING_HOST: ${NEXT_PUBLIC_BOOKING_HOST}
+        NEXT_PUBLIC_ADMIN_HOST: ${NEXT_PUBLIC_ADMIN_HOST}
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 9011
+      HOSTNAME: 0.0.0.0
+      API_URL: http://backend:3100
+    networks:
+      - joy-net
+    ports:
+      - "9011:9011"

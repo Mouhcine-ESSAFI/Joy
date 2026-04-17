@@ -1,14 +1,14 @@
 {
   "/_not-found/page": "/_not-found",
-  "/admin/integrations/page": "/admin/integrations",
-  "/admin/settings/transport/page": "/admin/settings/transport",
-  "/admin/profile/page": "/admin/profile",
-  "/admin/users/edit/[userId]/page": "/admin/users/edit/[userId]",
-  "/admin/tour-mapping/page": "/admin/tour-mapping",
-  "/customers/page": "/customers",
-  "/page": "/",
-  "/admin/settings/room-rules/page": "/admin/settings/room-rules",
-  "/login/page": "/login",
   "/admin/users/new/page": "/admin/users/new",
-  "/admin/users/page": "/admin/users"
+  "/admin/settings/room-rules/page": "/admin/settings/room-rules",
+  "/admin/integrations/page": "/admin/integrations",
+  "/admin/tour-mapping/page": "/admin/tour-mapping",
+  "/admin/users/edit/[userId]/page": "/admin/users/edit/[userId]",
+  "/admin/profile/page": "/admin/profile",
+  "/admin/settings/transport/page": "/admin/settings/transport",
+  "/page": "/",
+  "/customers/page": "/customers",
+  "/admin/users/page": "/admin/users",
+  "/login/page": "/login"
 }

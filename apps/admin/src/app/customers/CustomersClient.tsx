@@ -196,8 +196,13 @@ export default function CustomersClient() {
     updatedAt: false,
   });
 
-  const handleViewOrders = (email: string) =>
-    router.push(`/orders?search=${encodeURIComponent(email)}`);
+  const BOOKING_HOST = process.env.NEXT_PUBLIC_BOOKING_HOST || 'booking.joymorocco';
+  const handleViewOrders = (email: string) => {
+    const bookingBase = typeof window !== 'undefined'
+      ? `${window.location.protocol}//${BOOKING_HOST}`
+      : `https://${BOOKING_HOST}`;
+    window.location.href = `${bookingBase}/orders?search=${encodeURIComponent(email)}`;
+  };
 
   const handleExport = () => {
     if (!customers.length) { toast({ title: 'Nothing to export' }); return; }

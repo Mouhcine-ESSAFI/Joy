@@ -696,65 +696,91 @@ export default function OrdersClient() {
             </button>
           </div>
 
-          {!statsCollapsed && (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
-              {[
-                {
-                  label: "Today's Tours",
-                  value: todayLoading ? null : todayTotal,
-                  sub: todayLoading ? null : `${todayPax} pax`,
-                  icon: CalendarIcon,
-                  color: 'text-blue-600 bg-blue-50',
-                  href: `/orders?startDate=${today}&endDate=${today}`,
-                },
-                {
-                  label: 'New Orders',
-                  value: newLoading ? null : newTotal,
-                  sub: newLoading ? null : (newTotal > 0 ? 'Need attention' : 'All clear'),
-                  icon: AlertCircle,
-                  color: (newTotal ?? 0) > 0 ? 'text-amber-600 bg-amber-50' : 'text-green-600 bg-green-50',
-                  href: '/orders?status=New',
-                },
-                {
-                  label: 'Next 7 Days',
-                  value: upcomingLoading ? null : upcomingTotal,
-                  sub: upcomingLoading ? null : 'Upcoming tours',
-                  icon: TrendingUp,
-                  color: 'text-purple-600 bg-purple-50',
-                  href: `/orders?startDate=${today}&endDate=${next7}`,
-                },
-                {
-                  label: 'Total Orders',
-                  value: isLoading ? null : total,
-                  sub: 'Current filter',
-                  icon: Users,
-                  color: 'text-gray-600 bg-gray-50',
-                },
-              ].map((kpi) => {
-                const Icon = kpi.icon;
-                const inner = (
-                  <div className={cn('rounded-lg border p-3 flex items-center gap-3 transition-shadow', kpi.href && 'cursor-pointer hover:shadow-sm')}>
-                    <div className={cn('rounded-full p-2 shrink-0', kpi.color)}>
-                      <Icon className="h-4 w-4" />
+          {(() => {
+            const kpis = [
+              {
+                label: "Today's Tours",
+                value: todayLoading ? null : todayTotal,
+                sub: todayLoading ? null : `${todayPax} pax`,
+                icon: CalendarIcon,
+                color: 'text-blue-600 bg-blue-50',
+                href: `/orders?startDate=${today}&endDate=${today}`,
+              },
+              {
+                label: 'New Orders',
+                value: newLoading ? null : newTotal,
+                sub: newLoading ? null : (newTotal > 0 ? 'Need attention' : 'All clear'),
+                icon: AlertCircle,
+                color: (newTotal ?? 0) > 0 ? 'text-amber-600 bg-amber-50' : 'text-green-600 bg-green-50',
+                href: '/orders?status=New',
+              },
+              {
+                label: 'Next 7 Days',
+                value: upcomingLoading ? null : upcomingTotal,
+                sub: upcomingLoading ? null : 'Upcoming tours',
+                icon: TrendingUp,
+                color: 'text-purple-600 bg-purple-50',
+                href: `/orders?startDate=${today}&endDate=${next7}`,
+              },
+              {
+                label: 'Total Orders',
+                value: isLoading ? null : total,
+                sub: 'Current filter',
+                icon: Users,
+                color: 'text-gray-600 bg-gray-50',
+              },
+            ];
+
+            if (statsCollapsed) {
+              return (
+                <div className="flex flex-wrap gap-x-4 gap-y-1 pt-2">
+                  {kpis.map((kpi) => {
+                    const content = (
+                      <span key={kpi.label} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <span className="font-medium text-foreground">
+                          {kpi.value === null ? '…' : kpi.value}
+                        </span>
+                        {kpi.label}
+                      </span>
+                    );
+                    return kpi.href ? (
+                      <a key={kpi.label} href={kpi.href} className="hover:underline" onClick={(e) => { e.preventDefault(); router.push(kpi.href!); }}>
+                        {content}
+                      </a>
+                    ) : content;
+                  })}
+                </div>
+              );
+            }
+
+            return (
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
+                {kpis.map((kpi) => {
+                  const Icon = kpi.icon;
+                  const inner = (
+                    <div className={cn('rounded-lg border p-3 flex items-center gap-3 transition-shadow', kpi.href && 'cursor-pointer hover:shadow-sm')}>
+                      <div className={cn('rounded-full p-2 shrink-0', kpi.color)}>
+                        <Icon className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs text-muted-foreground truncate">{kpi.label}</p>
+                        {kpi.value === null
+                          ? <Skeleton className="h-6 w-12 mt-0.5" />
+                          : <p className="text-xl font-bold leading-tight">{kpi.value}</p>
+                        }
+                        {kpi.sub && kpi.value !== null && (
+                          <p className="text-xs text-muted-foreground">{kpi.sub}</p>
+                        )}
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <p className="text-xs text-muted-foreground truncate">{kpi.label}</p>
-                      {kpi.value === null
-                        ? <Skeleton className="h-6 w-12 mt-0.5" />
-                        : <p className="text-xl font-bold leading-tight">{kpi.value}</p>
-                      }
-                      {kpi.sub && kpi.value !== null && (
-                        <p className="text-xs text-muted-foreground">{kpi.sub}</p>
-                      )}
-                    </div>
-                  </div>
-                );
-                return kpi.href
-                  ? <a key={kpi.label} href={kpi.href} onClick={(e) => { e.preventDefault(); router.push(kpi.href!); }}>{inner}</a>
-                  : <div key={kpi.label}>{inner}</div>;
-              })}
-            </div>
-          )}
+                  );
+                  return kpi.href
+                    ? <a key={kpi.label} href={kpi.href} onClick={(e) => { e.preventDefault(); router.push(kpi.href!); }}>{inner}</a>
+                    : <div key={kpi.label}>{inner}</div>;
+                })}
+              </div>
+            );
+          })()}
         </CardHeader>
 
         <CardContent>

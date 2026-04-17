@@ -7,12 +7,14 @@ const nextConfig: NextConfig = {
   eslint: { ignoreDuringBuilds: true },
 
   async rewrites() {
+    const apiBase =
+      process.env.API_URL ||
+      process.env.NEXT_PUBLIC_API_URL ||
+      'http://localhost:3100';
     return [
       {
         source: '/api/:path*',
-        destination: process.env.NEXT_PUBLIC_API_URL
-          ? `${process.env.NEXT_PUBLIC_API_URL}/:path*`
-          : 'http://localhost:3100/:path*',
+        destination: `${apiBase}/:path*`,
       },
     ];
   },

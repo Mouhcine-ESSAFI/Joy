@@ -1,14 +1,14 @@
 {
   "/_not-found/page": "app/_not-found/page.js",
-  "/admin/integrations/page": "app/admin/integrations/page.js",
-  "/admin/settings/transport/page": "app/admin/settings/transport/page.js",
-  "/admin/profile/page": "app/admin/profile/page.js",
-  "/admin/users/edit/[userId]/page": "app/admin/users/edit/[userId]/page.js",
-  "/admin/tour-mapping/page": "app/admin/tour-mapping/page.js",
-  "/customers/page": "app/customers/page.js",
-  "/page": "app/page.js",
-  "/admin/settings/room-rules/page": "app/admin/settings/room-rules/page.js",
-  "/login/page": "app/login/page.js",
   "/admin/users/new/page": "app/admin/users/new/page.js",
-  "/admin/users/page": "app/admin/users/page.js"
+  "/admin/settings/room-rules/page": "app/admin/settings/room-rules/page.js",
+  "/admin/integrations/page": "app/admin/integrations/page.js",
+  "/admin/tour-mapping/page": "app/admin/tour-mapping/page.js",
+  "/admin/users/edit/[userId]/page": "app/admin/users/edit/[userId]/page.js",
+  "/admin/profile/page": "app/admin/profile/page.js",
+  "/admin/settings/transport/page": "app/admin/settings/transport/page.js",
+  "/page": "app/page.js",
+  "/customers/page": "app/customers/page.js",
+  "/admin/users/page": "app/admin/users/page.js",
+  "/login/page": "app/login/page.js"
 }

@@ -17,12 +17,16 @@ const nextConfig: NextConfig = {
   eslint: { ignoreDuringBuilds: true },
 
   async rewrites() {
+    // API_URL is a server-side runtime var (use internal Docker network in prod).
+    // Falls back to NEXT_PUBLIC_API_URL (build-time), then localhost for dev.
+    const apiBase =
+      process.env.API_URL ||
+      process.env.NEXT_PUBLIC_API_URL ||
+      'http://localhost:3100';
     return [
       {
         source: '/api/:path*',
-        destination: process.env.NEXT_PUBLIC_API_URL
-          ? `${process.env.NEXT_PUBLIC_API_URL}/:path*`
-          : 'http://localhost:3100/:path*',
+        destination: `${apiBase}/:path*`,
       },
     ];
   },

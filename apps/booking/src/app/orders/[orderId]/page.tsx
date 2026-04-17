@@ -8,6 +8,7 @@ import AppLayout from '@/components/layout/AppLayout';
 import { useOrder, useSupplements, useTransportTypes, useRoomTypeRules } from '@/lib/hooks';
 import api from '@/lib/api-client';
 import { useEffect, useMemo, useState } from 'react';
+import { useLocalStorage } from '@/hooks/use-local-storage';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import SupplementForm from './SupplementForm';
@@ -99,6 +100,7 @@ export default function OrderDetailsPage() {
 
   const [isSupplementFormOpen, setSupplementFormOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [activeTab, setActiveTab] = useLocalStorage('order-detail-tab', 'details');
 
   const form = useForm<OrderFormValues>({
     resolver: zodResolver(orderSchema),
@@ -143,29 +145,25 @@ export default function OrderDetailsPage() {
   useEffect(() => {
     if (!order || orderLoading || transportLoading || roomRulesLoading) return;
 
-    const timer = setTimeout(() => {
-      form.reset({
-        status: (order.status || 'New') as StatusValue,
-        customerName: order.customerName ?? '',
-        customerEmail: order.customerEmail ?? '',
-        customerPhone: order.customerPhone ?? '',
-        transportCode: order.transport ?? null,
-        driverName: order.driverNotes ?? '',
-        note: order.note ?? '',
+    form.reset({
+      status: (order.status || 'New') as StatusValue,
+      customerName: order.customerName ?? '',
+      customerEmail: order.customerEmail ?? '',
+      customerPhone: order.customerPhone ?? '',
+      transportCode: order.transport ?? null,
+      driverName: order.driverNotes ?? '',
+      note: order.note ?? '',
 
-        tourDate: order.tourDate ? new Date(order.tourDate) : null,
-        tourHour: order.tourHour ?? '',
-        tourCode: order.tourCode ?? '',
-        tourType: order.tourType ? (order.tourType as 'Shared' | 'Private') : null,
-        campType: order.campType ?? '',
-        roomType: order.roomType ?? '',
-        accommodationName: order.accommodationName ?? '',
-        pickupLocation: order.pickupLocation ?? '',
-        pax: Number(order.pax || 1),
-      });
-    }, 30);
-
-    return () => clearTimeout(timer);
+      tourDate: order.tourDate ? new Date(order.tourDate) : null,
+      tourHour: order.tourHour ?? '',
+      tourCode: order.tourCode ?? '',
+      tourType: order.tourType ? (order.tourType as 'Shared' | 'Private') : null,
+      campType: order.campType ?? '',
+      roomType: order.roomType ?? '',
+      accommodationName: order.accommodationName ?? '',
+      pickupLocation: order.pickupLocation ?? '',
+      pax: Number(order.pax || 1),
+    });
   }, [order, orderLoading, transportLoading, roomRulesLoading, form]);
 
   useEffect(() => {
@@ -305,7 +303,7 @@ export default function OrderDetailsPage() {
     <AppLayout>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
-          <Tabs defaultValue="details" className="w-full">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <div className="sticky top-0 z-10 -mx-4 -mt-4 lg:-mx-6 lg:-mt-6 bg-background/95 backdrop-blur-sm border-b">
               <div className="px-4 pt-4 lg:px-6 lg:pt-6 pb-2">
                 <Card className="bg-transparent border-none shadow-none">
@@ -565,7 +563,7 @@ export default function OrderDetailsPage() {
                                     <SelectValue placeholder="Select room type" />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    {roomTypeOptions.map((opt) => (
+                                    {[...new Set([...(field.value ? [field.value] : []), ...roomTypeOptions])].map((opt) => (
                                       <SelectItem key={opt} value={opt}>{opt}</SelectItem>
                                     ))}
                                   </SelectContent>

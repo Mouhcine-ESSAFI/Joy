@@ -1,0 +1,57 @@
+# =============================================================
+# Booking App — Docker build (monorepo root as build context)
+# =============================================================
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# Copy workspace manifests first for layer caching
+COPY package.json package-lock.json ./
+COPY packages/shared/package.json ./packages/shared/
+COPY apps/booking/package.json ./apps/booking/
+
+# Install all workspace deps in one shot
+RUN npm ci
+
+# Copy source
+COPY packages/shared/ ./packages/shared/
+COPY apps/booking/ ./apps/booking/
+
+WORKDIR /app/apps/booking
+
+# NEXT_PUBLIC_* vars are baked into the JS bundle at build time
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_BOOKING_HOST
+ARG NEXT_PUBLIC_ADMIN_HOST
+ARG NEXT_PUBLIC_VAPID_KEY
+
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_BOOKING_HOST=$NEXT_PUBLIC_BOOKING_HOST
+ENV NEXT_PUBLIC_ADMIN_HOST=$NEXT_PUBLIC_ADMIN_HOST
+ENV NEXT_PUBLIC_VAPID_KEY=$NEXT_PUBLIC_VAPID_KEY
+ENV NODE_ENV=production
+
+RUN npm run build
+
+# =============================================================
+FROM node:20-alpine AS runner
+
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV PORT=9010
+ENV HOSTNAME=0.0.0.0
+
+RUN apk add --no-cache wget
+
+# next output: standalone produces a self-contained directory
+COPY --from=builder /app/apps/booking/.next/standalone ./
+COPY --from=builder /app/apps/booking/.next/static ./apps/booking/.next/static
+COPY --from=builder /app/apps/booking/public ./apps/booking/public
+
+EXPOSE 9010
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=5 \
+  CMD wget -qO- http://127.0.0.1:9010/ >/dev/null || exit 1
+
+CMD ["node", "apps/booking/server.js"]
