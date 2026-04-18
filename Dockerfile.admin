@@ -37,7 +37,7 @@ FROM node:20-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
-ENV PORT=9011
+ENV PORT=4010
 ENV HOSTNAME=0.0.0.0
 
 RUN apk add --no-cache wget
