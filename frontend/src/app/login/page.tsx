@@ -12,8 +12,8 @@ import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useAuthContext } from '@/context/AuthContext';
 import type { UserRole } from '@/lib/types';
 
-const ADMIN_HOST = process.env.NEXT_PUBLIC_ADMIN_HOST || 'one.joymorocco';
-const BOOKING_HOST = process.env.NEXT_PUBLIC_BOOKING_HOST || 'booking.joymorocco';
+const ADMIN_HOST = process.env.NEXT_PUBLIC_ADMIN_HOST || 'one.joymorocco.com';
+const BOOKING_HOST = process.env.NEXT_PUBLIC_BOOKING_HOST || 'booking.joymorocco.com';
 
 const ADMIN_ROLES: UserRole[] = ['Owner' as UserRole, 'Admin' as UserRole];
 

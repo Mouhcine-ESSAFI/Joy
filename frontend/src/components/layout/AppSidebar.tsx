@@ -37,8 +37,8 @@ import {
 import { useAuthContext } from '@/context/AuthContext';
 import { Badge } from '@/components/ui/badge';
 
-const ADMIN_HOST = process.env.NEXT_PUBLIC_ADMIN_HOST || 'one.joymorocco';
-const BOOKING_HOST = process.env.NEXT_PUBLIC_BOOKING_HOST || 'booking.joymorocco';
+const ADMIN_HOST = process.env.NEXT_PUBLIC_ADMIN_HOST || 'one.joymorocco.com';
+const BOOKING_HOST = process.env.NEXT_PUBLIC_BOOKING_HOST || 'booking.joymorocco.com';
 
 function usePortal(): 'admin' | 'booking' | 'all' {
   if (typeof window === 'undefined') return 'all';
@@ -248,14 +248,14 @@ export default function AppSidebar({ isCollapsed }: { isCollapsed: boolean }) {
                         <span className="sr-only">Admin Portal</span>
                       </a>
                     </TooltipTrigger>
-                    <TooltipContent side="right">Admin Portal (one.joymorocco)</TooltipContent>
+                    <TooltipContent side="right">Admin Portal (one.joymorocco.com)</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
               ) : (
                 <a href={crossLink('/admin/users')} className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary text-xs">
                   <Building className="h-4 w-4" />
                   <span>Admin Portal</span>
-                  <span className="ml-auto text-[10px] opacity-60">one.joymorocco</span>
+                  <span className="ml-auto text-[10px] opacity-60">one.joymorocco.com</span>
                 </a>
               )}
             </div>
@@ -271,14 +271,14 @@ export default function AppSidebar({ isCollapsed }: { isCollapsed: boolean }) {
                         <span className="sr-only">Booking Portal</span>
                       </a>
                     </TooltipTrigger>
-                    <TooltipContent side="right">Booking Portal (booking.joymorocco)</TooltipContent>
+                    <TooltipContent side="right">Booking Portal (booking.joymorocco.com)</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
               ) : (
                 <a href={crossLink('/orders')} className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary text-xs">
                   <Briefcase className="h-4 w-4" />
                   <span>Booking Portal</span>
-                  <span className="ml-auto text-[10px] opacity-60">booking.joymorocco</span>
+                  <span className="ml-auto text-[10px] opacity-60">booking.joymorocco.com</span>
                 </a>
               )}
             </div>

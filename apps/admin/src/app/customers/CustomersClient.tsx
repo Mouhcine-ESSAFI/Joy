@@ -196,7 +196,7 @@ export default function CustomersClient() {
     updatedAt: false,
   });
 
-  const BOOKING_HOST = process.env.NEXT_PUBLIC_BOOKING_HOST || 'booking.joymorocco';
+  const BOOKING_HOST = process.env.NEXT_PUBLIC_BOOKING_HOST || 'booking.joymorocco.com';
   const handleViewOrders = (email: string) => {
     const bookingBase = typeof window !== 'undefined'
       ? `${window.location.protocol}//${BOOKING_HOST}`

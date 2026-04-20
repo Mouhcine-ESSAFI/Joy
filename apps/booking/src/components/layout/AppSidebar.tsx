@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAuthContext } from '@/context/AuthContext';
 
-const ADMIN_HOST = process.env.NEXT_PUBLIC_ADMIN_HOST || 'one.joymorocco';
+const ADMIN_HOST = process.env.NEXT_PUBLIC_ADMIN_HOST || 'one.joymorocco.com';
 
 const nav = [
   { href: '/dashboard', icon: Home, label: 'Dashboard', exact: true },

@@ -18,8 +18,8 @@ const PUBLIC_PATHS = [
 const ADMIN_ROUTES = ['/admin', '/customers'];
 const BOOKING_ROUTES = ['/dashboard', '/orders', '/calendar'];
 
-const ADMIN_HOST = process.env.NEXT_PUBLIC_ADMIN_HOST || 'one.joymorocco';
-const BOOKING_HOST = process.env.NEXT_PUBLIC_BOOKING_HOST || 'booking.joymorocco';
+const ADMIN_HOST = process.env.NEXT_PUBLIC_ADMIN_HOST || 'one.joymorocco.com';
+const BOOKING_HOST = process.env.NEXT_PUBLIC_BOOKING_HOST || 'booking.joymorocco.com';
 
 function getPortal(hostname: string): 'admin' | 'booking' | 'all' {
   if (hostname === ADMIN_HOST || hostname.startsWith('one.')) return 'admin';

@@ -15,7 +15,7 @@ import { useAuthContext } from '@/context/AuthContext';
 import type { UserRole } from '@/lib/types';
 import { useMemo } from 'react';
 
-const BOOKING_HOST = process.env.NEXT_PUBLIC_BOOKING_HOST || 'booking.joymorocco';
+const BOOKING_HOST = process.env.NEXT_PUBLIC_BOOKING_HOST || 'booking.joymorocco.com';
 
 const ROLE_COLORS: Record<string, string> = {
   Owner: 'bg-amber-100 text-amber-800 border-amber-200',
