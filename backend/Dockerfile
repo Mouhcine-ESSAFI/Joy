@@ -6,6 +6,9 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# Force development so devDependencies (@nestjs/cli, typescript, etc.) are installed
+ENV NODE_ENV=development
+
 COPY package*.json ./
 RUN npm ci
 
