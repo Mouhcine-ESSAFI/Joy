@@ -49,9 +49,9 @@ COPY --from=builder /app/apps/booking/.next/standalone ./
 COPY --from=builder /app/apps/booking/.next/static ./apps/booking/.next/static
 COPY --from=builder /app/apps/booking/public ./apps/booking/public
 
-EXPOSE 9010
+EXPOSE 4020
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=5 \
-  CMD wget -qO- http://127.0.0.1:9010/ >/dev/null || exit 1
+  CMD wget -qO- http://127.0.0.1:4020/ >/dev/null || exit 1
 
 CMD ["node", "apps/booking/server.js"]

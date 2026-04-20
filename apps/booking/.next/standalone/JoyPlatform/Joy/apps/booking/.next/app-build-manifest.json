@@ -65,15 +65,12 @@
       "static/chunks/142-09ef06d0767f1f54.js",
       "static/chunks/app/dashboard/page-1a420f51b5cd9893.js"
     ],
-    "/login/page": [
+    "/page": [
       "static/chunks/webpack-9cfe39931af18084.js",
       "static/chunks/87c73c54-24122e7b92478d00.js",
       "static/chunks/626-c64b871ce6ec1002.js",
       "static/chunks/main-app-c3f08dd0654b5a1b.js",
-      "static/chunks/274-d16f42bbe72a3ae4.js",
-      "static/chunks/838-b5547f43f70a581a.js",
-      "static/chunks/832-30f533f192ffebe4.js",
-      "static/chunks/app/login/page-fe4a0f6b775cfe43.js"
+      "static/chunks/app/page-066effffd3f44ae6.js"
     ],
     "/orders/new/page": [
       "static/chunks/webpack-9cfe39931af18084.js",
@@ -93,6 +90,16 @@
       "static/chunks/156-abefebee6846ad09.js",
       "static/chunks/app/orders/new/page-0ccdc1822bf16a29.js"
     ],
+    "/login/page": [
+      "static/chunks/webpack-9cfe39931af18084.js",
+      "static/chunks/87c73c54-24122e7b92478d00.js",
+      "static/chunks/626-c64b871ce6ec1002.js",
+      "static/chunks/main-app-c3f08dd0654b5a1b.js",
+      "static/chunks/274-d16f42bbe72a3ae4.js",
+      "static/chunks/838-b5547f43f70a581a.js",
+      "static/chunks/832-30f533f192ffebe4.js",
+      "static/chunks/app/login/page-fe4a0f6b775cfe43.js"
+    ],
     "/orders/page": [
       "static/chunks/webpack-9cfe39931af18084.js",
       "static/chunks/87c73c54-24122e7b92478d00.js",
@@ -111,13 +118,6 @@
       "static/chunks/156-abefebee6846ad09.js",
       "static/chunks/app/orders/page-5dbda970540b449b.js"
     ],
-    "/page": [
-      "static/chunks/webpack-9cfe39931af18084.js",
-      "static/chunks/87c73c54-24122e7b92478d00.js",
-      "static/chunks/626-c64b871ce6ec1002.js",
-      "static/chunks/main-app-c3f08dd0654b5a1b.js",
-      "static/chunks/app/page-066effffd3f44ae6.js"
-    ],
     "/orders/[orderId]/page": [
       "static/chunks/webpack-9cfe39931af18084.js",
       "static/chunks/87c73c54-24122e7b92478d00.js",
@@ -134,7 +134,7 @@
       "static/chunks/832-30f533f192ffebe4.js",
       "static/chunks/142-09ef06d0767f1f54.js",
       "static/chunks/156-abefebee6846ad09.js",
-      "static/chunks/app/orders/[orderId]/page-632a48ba34c9e342.js"
+      "static/chunks/app/orders/[orderId]/page-f18975ffd96a847a.js"
     ]
   }
 }

@@ -1,14 +1,14 @@
 {
   "/_not-found/page": "/_not-found",
-  "/admin/users/new/page": "/admin/users/new",
-  "/admin/settings/room-rules/page": "/admin/settings/room-rules",
   "/admin/integrations/page": "/admin/integrations",
-  "/admin/tour-mapping/page": "/admin/tour-mapping",
-  "/admin/users/edit/[userId]/page": "/admin/users/edit/[userId]",
   "/admin/profile/page": "/admin/profile",
+  "/admin/settings/room-rules/page": "/admin/settings/room-rules",
   "/admin/settings/transport/page": "/admin/settings/transport",
+  "/admin/users/edit/[userId]/page": "/admin/users/edit/[userId]",
+  "/admin/tour-mapping/page": "/admin/tour-mapping",
+  "/login/page": "/login",
   "/page": "/",
   "/customers/page": "/customers",
-  "/admin/users/page": "/admin/users",
-  "/login/page": "/login"
+  "/admin/users/new/page": "/admin/users/new",
+  "/admin/users/page": "/admin/users"
 }

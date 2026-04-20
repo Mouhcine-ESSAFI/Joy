@@ -22,11 +22,11 @@ ENV NODE_ENV=production
 
 # Only install production deps
 COPY package*.json ./
-RUN npm ci --omit=dev && npm cache clean --force
+RUN npm ci --omit=dev && npm cache clean --force && apk add --no-cache wget
 
 COPY --from=builder /app/dist ./dist
 
-EXPOSE 3100
+EXPOSE 4000
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=5 \
   CMD wget -qO- http://127.0.0.1:4000/health >/dev/null || exit 1
