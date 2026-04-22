@@ -8,7 +8,7 @@
  */
 import 'dotenv/config';
 
-const BASE_URL = process.env.API_URL || 'http://localhost:3100';
+const BASE_URL = process.env.API_URL || 'http://localhost:4000';
 
 const args = process.argv.slice(2).reduce<Record<string, string>>((acc, arg) => {
   const [key, val] = arg.replace('--', '').split('=');

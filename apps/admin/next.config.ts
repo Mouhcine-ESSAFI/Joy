@@ -10,7 +10,7 @@ const nextConfig: NextConfig = {
     const apiBase =
       process.env.API_URL ||
       process.env.NEXT_PUBLIC_API_URL ||
-      'http://localhost:3100';
+      'http://localhost:4000';
     return [
       {
         source: '/api/:path*',

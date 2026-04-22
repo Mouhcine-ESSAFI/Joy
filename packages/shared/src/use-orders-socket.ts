@@ -27,7 +27,7 @@ export function useOrdersSocket(onOrdersChanged: EventCallback) {
   useEffect(() => {
     if (typeof window === 'undefined') return; // SSR guard
 
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3100';
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
     const socket: Socket = io(`${backendUrl}/events`, {
       withCredentials: true,
