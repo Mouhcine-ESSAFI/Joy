@@ -140,7 +140,7 @@ export default function OrderDetailsPage() {
     return [...new Set(opts.filter(Boolean))];
   }, [roomRules, paxValue]);
 
-  const isLoading = orderLoading || supplementsLoading || transportLoading || roomRulesLoading || !order;
+  const isLoading = orderLoading || supplementsLoading || transportLoading || roomRulesLoading;
 
   useEffect(() => {
     if (!order || orderLoading || transportLoading || roomRulesLoading) return;
