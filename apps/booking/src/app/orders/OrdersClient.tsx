@@ -213,14 +213,24 @@ export default function OrdersClient() {
 
   // KPI stats (independent from current filter state)
   const today = React.useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const tomorrow = React.useMemo(() => {
+    const d = new Date(); d.setDate(d.getDate() + 1);
+    return d.toISOString().slice(0, 10);
+  }, []);
   const next7 = React.useMemo(() => {
     const d = new Date(); d.setDate(d.getDate() + 7);
     return d.toISOString().slice(0, 10);
   }, []);
   const { total: todayTotal, orders: todayOrders, loading: todayLoading } = useOrders({ startDate: today, endDate: today, pageSize: 200 });
   const { total: newTotal, loading: newLoading } = useOrders({ status: 'New' as OrderStatus, pageSize: 1 });
+  const { total: tomorrowTotal, orders: tomorrowOrders, loading: tomorrowLoading } = useOrders({ startDate: tomorrow, endDate: tomorrow, pageSize: 200 });
   const { total: upcomingTotal, loading: upcomingLoading } = useOrders({ startDate: today, endDate: next7, pageSize: 1 });
   const todayPax = React.useMemo(() => todayOrders.reduce((s, o) => s + (o.pax || 0), 0), [todayOrders]);
+  const tomorrowPax = React.useMemo(() => tomorrowOrders.reduce((s, o) => s + (o.pax || 0), 0), [tomorrowOrders]);
+  const tomorrowHasPending = React.useMemo(
+    () => tomorrowOrders.some(o => o.status !== 'Completed' && o.status !== 'Canceled'),
+    [tomorrowOrders],
+  );
 
   // Filter active for dropdowns
   const activeTransportTypes = React.useMemo(
@@ -697,6 +707,10 @@ export default function OrdersClient() {
           </div>
 
           {(() => {
+            const todayDate = new Date();
+            const tomorrowDate = new Date(); tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+            const next7Date = new Date(); next7Date.setDate(next7Date.getDate() + 7);
+
             const kpis = [
               {
                 label: "Today's Tours",
@@ -704,7 +718,24 @@ export default function OrdersClient() {
                 sub: todayLoading ? null : `${todayPax} pax`,
                 icon: CalendarIcon,
                 color: 'text-blue-600 bg-blue-50',
-                href: `/orders?startDate=${today}&endDate=${today}`,
+                onClick: () => {
+                  setFilters(f => ({ ...f, dateRange: { from: todayDate, to: todayDate } }));
+                  setStatusTab('all');
+                  setPage(1);
+                },
+              },
+              {
+                label: "Tomorrow's Tours",
+                value: tomorrowLoading ? null : tomorrowTotal,
+                sub: tomorrowLoading ? null : (tomorrowHasPending ? `${tomorrowPax} pax — pending` : `${tomorrowPax} pax`),
+                icon: CalendarIcon,
+                color: (!tomorrowLoading && tomorrowHasPending) ? 'text-red-600 bg-red-50' : 'text-indigo-600 bg-indigo-50',
+                alert: !tomorrowLoading && tomorrowHasPending,
+                onClick: () => {
+                  setFilters(f => ({ ...f, dateRange: { from: tomorrowDate, to: tomorrowDate } }));
+                  setStatusTab('all');
+                  setPage(1);
+                },
               },
               {
                 label: 'New Orders',
@@ -712,7 +743,11 @@ export default function OrdersClient() {
                 sub: newLoading ? null : (newTotal > 0 ? 'Need attention' : 'All clear'),
                 icon: AlertCircle,
                 color: (newTotal ?? 0) > 0 ? 'text-amber-600 bg-amber-50' : 'text-green-600 bg-green-50',
-                href: '/orders?status=New',
+                onClick: () => {
+                  setStatusTab('New');
+                  setFilters(f => ({ ...f, dateRange: undefined }));
+                  setPage(1);
+                },
               },
               {
                 label: 'Next 7 Days',
@@ -720,35 +755,30 @@ export default function OrdersClient() {
                 sub: upcomingLoading ? null : 'Upcoming tours',
                 icon: TrendingUp,
                 color: 'text-purple-600 bg-purple-50',
-                href: `/orders?startDate=${today}&endDate=${next7}`,
-              },
-              {
-                label: 'Total Orders',
-                value: isLoading ? null : total,
-                sub: 'Current filter',
-                icon: Users,
-                color: 'text-gray-600 bg-gray-50',
+                onClick: () => {
+                  setFilters(f => ({ ...f, dateRange: { from: todayDate, to: next7Date } }));
+                  setStatusTab('all');
+                  setPage(1);
+                },
               },
             ];
 
             if (statsCollapsed) {
               return (
                 <div className="flex flex-wrap gap-x-4 gap-y-1 pt-2">
-                  {kpis.map((kpi) => {
-                    const content = (
-                      <span key={kpi.label} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <span className="font-medium text-foreground">
-                          {kpi.value === null ? '…' : kpi.value}
-                        </span>
-                        {kpi.label}
+                  {kpis.map((kpi) => (
+                    <button
+                      key={kpi.label}
+                      type="button"
+                      className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                      onClick={kpi.onClick}
+                    >
+                      <span className={cn('font-medium', kpi.alert && 'text-red-600')}>
+                        {kpi.value === null ? '…' : kpi.value}
                       </span>
-                    );
-                    return kpi.href ? (
-                      <a key={kpi.label} href={kpi.href} className="hover:underline" onClick={(e) => { e.preventDefault(); router.push(kpi.href!); }}>
-                        {content}
-                      </a>
-                    ) : content;
-                  })}
+                      {kpi.label}
+                    </button>
+                  ))}
                 </div>
               );
             }
@@ -757,26 +787,33 @@ export default function OrdersClient() {
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
                 {kpis.map((kpi) => {
                   const Icon = kpi.icon;
-                  const inner = (
-                    <div className={cn('rounded-lg border p-3 flex items-center gap-3 transition-shadow', kpi.href && 'cursor-pointer hover:shadow-sm')}>
-                      <div className={cn('rounded-full p-2 shrink-0', kpi.color)}>
-                        <Icon className="h-4 w-4" />
+                  return (
+                    <button
+                      key={kpi.label}
+                      type="button"
+                      className="text-left w-full"
+                      onClick={kpi.onClick}
+                    >
+                      <div className={cn(
+                        'rounded-lg border p-3 flex items-center gap-3 transition-shadow cursor-pointer hover:shadow-sm',
+                        kpi.alert && 'border-red-200 bg-red-50/30',
+                      )}>
+                        <div className={cn('rounded-full p-2 shrink-0', kpi.color)}>
+                          <Icon className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs text-muted-foreground truncate">{kpi.label}</p>
+                          {kpi.value === null
+                            ? <Skeleton className="h-6 w-12 mt-0.5" />
+                            : <p className={cn('text-xl font-bold leading-tight', kpi.alert && 'text-red-600')}>{kpi.value}</p>
+                          }
+                          {kpi.sub && kpi.value !== null && (
+                            <p className={cn('text-xs', kpi.alert ? 'text-red-500' : 'text-muted-foreground')}>{kpi.sub}</p>
+                          )}
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <p className="text-xs text-muted-foreground truncate">{kpi.label}</p>
-                        {kpi.value === null
-                          ? <Skeleton className="h-6 w-12 mt-0.5" />
-                          : <p className="text-xl font-bold leading-tight">{kpi.value}</p>
-                        }
-                        {kpi.sub && kpi.value !== null && (
-                          <p className="text-xs text-muted-foreground">{kpi.sub}</p>
-                        )}
-                      </div>
-                    </div>
+                    </button>
                   );
-                  return kpi.href
-                    ? <a key={kpi.label} href={kpi.href} onClick={(e) => { e.preventDefault(); router.push(kpi.href!); }}>{inner}</a>
-                    : <div key={kpi.label}>{inner}</div>;
                 })}
               </div>
             );

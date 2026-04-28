@@ -410,7 +410,11 @@ import { isApiError } from './types';
       country?: string;
       page?: number;
       pageSize?: number;
-    }) => client.get<CustomersResponse>('/customers', params as any),
+    }) => {
+      const entries = Object.entries(params ?? {}).filter(([, v]) => v !== undefined && v !== null && v !== '');
+      const qs = entries.length ? '?' + new URLSearchParams(entries as [string, string][]).toString() : '';
+      return client.get<CustomersResponse>(`/customers${qs}`);
+    },
 
     findOne: (id: string) => client.get<Customer>(`/customers/${id}`),
 

@@ -85,7 +85,7 @@ export class OrdersService {
 
     // Notify eligible users (Owner, Admin, Travel Agent) about the new order
     this.notificationsService
-      .notifyNewOrder(saved.id, saved.shopifyOrderNumber)
+      .notifyNewOrder(saved.id, saved.shopifyOrderNumber, saved.storeId)
       .catch((err) => this.logger.warn(`Push notification failed for order ${saved.shopifyOrderNumber}: ${err.message}`));
 
     return saved;

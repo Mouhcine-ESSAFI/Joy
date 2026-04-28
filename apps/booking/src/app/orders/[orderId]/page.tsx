@@ -101,6 +101,7 @@ export default function OrderDetailsPage() {
   const [isSupplementFormOpen, setSupplementFormOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useLocalStorage('order-detail-tab', 'details');
+  const [formInitialized, setFormInitialized] = useState(false);
 
   const form = useForm<OrderFormValues>({
     resolver: zodResolver(orderSchema),
@@ -140,7 +141,9 @@ export default function OrderDetailsPage() {
     return [...new Set(opts.filter(Boolean))];
   }, [roomRules, paxValue]);
 
-  const isLoading = orderLoading || supplementsLoading || transportLoading || roomRulesLoading;
+  // Keep the skeleton until after form.reset() fires (it runs post-render via useEffect).
+  // Without this, the form briefly shows empty default values before being populated.
+  const isLoading = orderLoading || supplementsLoading || transportLoading || roomRulesLoading || (!!order && !formInitialized);
 
   useEffect(() => {
     if (!order || orderLoading || transportLoading || roomRulesLoading) return;
@@ -164,6 +167,7 @@ export default function OrderDetailsPage() {
       pickupLocation: order.pickupLocation ?? '',
       pax: Number(order.pax || 1),
     });
+    setFormInitialized(true);
   }, [order, orderLoading, transportLoading, roomRulesLoading, form]);
 
   useEffect(() => {

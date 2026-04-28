@@ -43,6 +43,23 @@ export class NotificationsService {
       return existing;
     }
 
+    // Remove stale subscriptions from the same push service origin (same device/browser).
+    // When a browser re-subscribes (e.g. after a VAPID key change), the old endpoint
+    // stays valid for a while and causes duplicate notifications.
+    try {
+      const newOrigin = new URL(subscription.endpoint).hostname;
+      const all = await this.subscriptionsRepo.find({ where: { userId } });
+      const stale = all.filter((sub) => {
+        try { return new URL(sub.endpoint).hostname === newOrigin; } catch { return false; }
+      });
+      if (stale.length) {
+        await this.subscriptionsRepo.remove(stale);
+        this.logger.log(`Removed ${stale.length} stale subscription(s) for user ${userId}`);
+      }
+    } catch {
+      // URL parse failure is non-fatal
+    }
+
     return this.subscriptionsRepo.save({
       userId,
       endpoint: subscription.endpoint,
@@ -79,16 +96,27 @@ export class NotificationsService {
     return sent;
   }
 
-  async notifyNewOrder(orderId: string, orderNumber: string) {
-    // Find users with the allowed roles
+  async notifyNewOrder(orderId: string, orderNumber: string, storeId?: string) {
+    // Find users with the allowed roles, including their store access list
     const eligibleUsers = await this.usersRepo.find({
       where: { role: In(NotificationsService.NEW_ORDER_ROLES) },
-      select: ['id'],
+      select: ['id', 'role', 'accessibleShopifyStores'],
     });
 
     if (!eligibleUsers.length) return;
 
-    const eligibleUserIds = eligibleUsers.map(u => u.id);
+    // Travel Agents only get notified for stores they have access to
+    const filteredUsers = eligibleUsers.filter((u) => {
+      if (u.role === UserRole.TRAVEL_AGENT) {
+        if (!storeId || !u.accessibleShopifyStores?.length) return false;
+        return u.accessibleShopifyStores.includes(storeId);
+      }
+      return true; // Owner and Admin always notified
+    });
+
+    if (!filteredUsers.length) return;
+
+    const eligibleUserIds = filteredUsers.map(u => u.id);
 
     const subscriptions = await this.subscriptionsRepo.find({
       where: { userId: In(eligibleUserIds) },

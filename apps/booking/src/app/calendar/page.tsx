@@ -10,9 +10,8 @@ import { useOrders } from '@/lib/hooks';
 import AppLayout from '@/components/layout/AppLayout';
 import { useRouter } from 'next/navigation';
 import { Calendar } from '@/components/ui/calendar';
-import { Clock, Users, MapPin, Calendar as CalendarIcon, PlusCircle } from 'lucide-react';
+import { Clock, Users, MapPin, Calendar as CalendarIcon } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function CalendarPage() {
@@ -213,7 +212,7 @@ export default function CalendarPage() {
                 showOutsideDays={true}
                 numberOfMonths={2}
                 modifiers={{ booked: datesWithOrders }}
-                modifiersStyles={{ booked: { backgroundColor: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))', fontWeight: 'bold' }}}
+                modifiersStyles={{ booked: { backgroundColor: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))', fontWeight: 'bold', borderRadius: '2px', margin: '2px' }}}
                 />
             )}
             <div className="mt-4 space-y-2 pt-4 border-t">
@@ -227,23 +226,10 @@ export default function CalendarPage() {
         <Dialog open={isTourListOpen} onOpenChange={setTourListOpen}>
           <DialogContent className="max-w-xl">
             <DialogHeader>
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <DialogTitle>Tours for {date ? format(date, 'EEEE, dd-MM-yy') : 'selected date'}</DialogTitle>
-                  <DialogDescription className="mt-1">
-                    {selectedDateOrders.length} tour(s) scheduled • {stats.selectedDatePax} total passengers
-                  </DialogDescription>
-                </div>
-                <Link
-                  href={`/orders/new${date ? `?tourDate=${format(date, 'yyyy-MM-dd')}` : ''}`}
-                  onClick={() => setTourListOpen(false)}
-                >
-                  <Button size="sm" className="gap-1 shrink-0">
-                    <PlusCircle className="h-4 w-4" />
-                    New Order
-                  </Button>
-                </Link>
-              </div>
+              <DialogTitle>Tours for {date ? format(date, 'EEEE, dd-MM-yy') : 'selected date'}</DialogTitle>
+              <DialogDescription className="mt-1">
+                {selectedDateOrders.length} tour(s) scheduled • {stats.selectedDatePax} total passengers
+              </DialogDescription>
             </DialogHeader>
             <div className="max-h-[60vh] overflow-y-auto -mx-6 px-6 pt-4 space-y-4">
               {selectedDateOrders.map((order) => <TourListItem key={order.id} order={order} />)}
