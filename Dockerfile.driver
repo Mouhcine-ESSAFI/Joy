@@ -1,0 +1,58 @@
+# =============================================================
+# Driver App — Docker build (monorepo root as build context)
+# =============================================================
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# Force development so devDependencies (Next.js, TypeScript, etc.) are installed
+ENV NODE_ENV=development
+
+# Copy workspace manifests first for layer caching
+COPY package.json package-lock.json ./
+COPY packages/shared/package.json ./packages/shared/
+COPY apps/driver/package.json ./apps/driver/
+
+# Install all workspace deps in one shot
+RUN npm ci
+
+# Copy source
+COPY packages/shared/ ./packages/shared/
+COPY apps/driver/ ./apps/driver/
+
+WORKDIR /app/apps/driver
+
+# NEXT_PUBLIC_* vars are baked into the JS bundle at build time
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_BOOKING_HOST
+ARG NEXT_PUBLIC_ADMIN_HOST
+
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_BOOKING_HOST=$NEXT_PUBLIC_BOOKING_HOST
+ENV NEXT_PUBLIC_ADMIN_HOST=$NEXT_PUBLIC_ADMIN_HOST
+ENV NODE_ENV=production
+
+RUN npm run build
+
+# =============================================================
+FROM node:20-alpine AS runner
+
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV PORT=4030
+ENV HOSTNAME=0.0.0.0
+
+RUN apk add --no-cache wget
+
+# next output: standalone produces a self-contained directory
+COPY --from=builder /app/apps/driver/.next/standalone ./
+COPY --from=builder /app/apps/driver/.next/static ./apps/driver/.next/static
+COPY --from=builder /app/apps/driver/public ./apps/driver/public 2>/dev/null || true
+
+EXPOSE 4030
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=5 \
+  CMD wget -qO- http://127.0.0.1:4030/ >/dev/null || exit 1
+
+CMD ["node", "apps/driver/server.js"]

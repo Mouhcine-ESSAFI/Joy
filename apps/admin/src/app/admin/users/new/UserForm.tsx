@@ -32,6 +32,7 @@ import type { User, ShopifyStore, CreateUserDto, UpdateUserDto, UserRole } from 
 import api from '@/lib/api-client';
 import PermissionsForm from '../PermissionsForm';
 import { useAuthContext } from '@/context/AuthContext';
+import { useTransportTypes } from '@/lib/hooks';
 
 const permissionSchema = z.object({
   create: z.boolean().default(false),
@@ -48,6 +49,7 @@ const baseUserSchema = z.object({
   status: z.enum(['active', 'inactive']),
   accessibleShopifyStores: z.array(z.string()),
   permissions: z.record(z.string(), permissionSchema.partial()).optional(),
+  assignedTransportCode: z.string().nullable().optional(),
 });
 
 // conditional schema based on whether we are editing or creating
@@ -62,6 +64,13 @@ function getUserSchema(isEditing: boolean) {
                 code: z.ZodIssueCode.custom,
                 path: ['accessibleShopifyStores'],
                 message: "Travel Agent must be assigned to at least one store.",
+            });
+        }
+        if (data.role === 'Driver' && !data.assignedTransportCode) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['assignedTransportCode'],
+                message: "Driver must be assigned to a transport company.",
             });
         }
     });
@@ -111,6 +120,7 @@ export default function UserForm({ user, userId }: UserFormProps) {
   const [shopifyStores, setShopifyStores] = useState<ShopifyStore[]>([]);
   const [ownerExists, setOwnerExists] = useState(false);
   const canManageOwnerRole = currentUser?.role === 'Owner';
+  const { transportTypes } = useTransportTypes(false);
 
   const userSchema = useMemo(() => getUserSchema(!!userId), [userId]);
   type UserFormValues = z.infer<typeof userSchema>;
@@ -131,11 +141,13 @@ export default function UserForm({ user, userId }: UserFormProps) {
         ...user,
         password: '',
         permissions: user.permissions || getDefaultPermissions(user.role),
+        assignedTransportCode: user.assignedTransportCode ?? null,
     } : {
       name: '', email: '', password: '',
       role: 'Travel Agent', status: 'active',
       accessibleShopifyStores: [],
       permissions: getDefaultPermissions('Travel Agent'),
+      assignedTransportCode: null,
     },
   });
   
@@ -146,6 +158,7 @@ export default function UserForm({ user, userId }: UserFormProps) {
   const handleRoleChange = (newRole: UserRole) => {
     form.setValue('role', newRole);
     form.setValue('permissions', getDefaultPermissions(newRole));
+    form.setValue('assignedTransportCode', null);
 
     if (newRole === 'Admin' || newRole === 'Finance' || newRole === 'Driver' || newRole === 'Owner') {
         form.setValue('accessibleShopifyStores', shopifyStores.map(s => s.internalName));
@@ -250,6 +263,34 @@ export default function UserForm({ user, userId }: UserFormProps) {
             </Card>
         )}
         
+        {role === 'Driver' && (
+            <Card>
+                <CardHeader><CardTitle>Transport Assignment</CardTitle><CardDescription>Assign this driver to a transport company. They will only see orders with this transport code.</CardDescription></CardHeader>
+                <CardContent>
+                    <FormField
+                        control={form.control}
+                        name="assignedTransportCode"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Transport Company</FormLabel>
+                                <Select onValueChange={(v) => field.onChange(v || null)} value={field.value ?? ''}>
+                                    <FormControl>
+                                        <SelectTrigger><SelectValue placeholder="Select a transport company" /></SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        {transportTypes.map((t) => (
+                                            <SelectItem key={t.id} value={t.code}>{t.name} ({t.code})</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                </CardContent>
+            </Card>
+        )}
+
         <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => router.back()}>
                 Cancel

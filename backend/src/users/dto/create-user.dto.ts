@@ -27,4 +27,8 @@ export class CreateUserDto {
   @IsObject()
   @IsOptional()
   permissions?: Record<string, any>;
+
+  @IsString()
+  @IsOptional()
+  assignedTransportCode?: string | null;
 }

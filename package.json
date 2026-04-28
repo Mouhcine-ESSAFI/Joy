@@ -8,8 +8,10 @@
   "scripts": {
     "dev:booking": "npm run dev --workspace=apps/booking",
     "dev:admin": "npm run dev --workspace=apps/admin",
+    "dev:driver": "npm run dev --workspace=apps/driver",
     "build:booking": "npm run build --workspace=apps/booking",
     "build:admin": "npm run build --workspace=apps/admin",
+    "build:driver": "npm run build --workspace=apps/driver",
     "build": "npm run build --workspaces --if-present"
   }
 }

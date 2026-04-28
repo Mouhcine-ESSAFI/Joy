@@ -53,5 +53,8 @@ export class User {
   createdAt: Date;
 
   @Column({ type: 'varchar', nullable: true })
+  assignedTransportCode: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
   refreshTokenHash: string | null;
 }

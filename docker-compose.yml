@@ -105,3 +105,26 @@ services:
       - joy-net
     ports:
       - "4010:4010"
+
+  # ── Driver App (Next.js) ────────────────────────────────────────────────────
+  driver:
+    build:
+      context: .
+      dockerfile: Dockerfile.driver
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+        NEXT_PUBLIC_BOOKING_HOST: ${NEXT_PUBLIC_BOOKING_HOST}
+        NEXT_PUBLIC_ADMIN_HOST: ${NEXT_PUBLIC_ADMIN_HOST}
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 4030
+      HOSTNAME: 0.0.0.0
+      API_URL: http://backend:4000
+    networks:
+      - joy-net
+    ports:
+      - "4030:4030"

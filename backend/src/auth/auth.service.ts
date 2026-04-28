@@ -20,6 +20,7 @@ export class AuthService {
       role: user.role,
       stores: user.accessibleShopifyStores,
       permissions: user.permissions,
+      assignedTransportCode: user.assignedTransportCode ?? null,
     };
   }
 
@@ -65,6 +66,7 @@ export class AuthService {
         status: user.status,
         accessibleShopifyStores: user.accessibleShopifyStores,
         permissions: user.permissions,
+        assignedTransportCode: user.assignedTransportCode ?? null,
       },
     };
   }

@@ -30,6 +30,7 @@ export interface User {
   status: UserStatus;
   accessibleShopifyStores: string[]; // ['EN', 'ES']
   permissions: Record<string, any>;
+  assignedTransportCode: string | null;
   createdAt: string; // ISO timestamp
 }
 
@@ -41,6 +42,7 @@ export interface CreateUserDto {
   status?: UserStatus;
   accessibleShopifyStores?: string[];
   permissions?: Record<string, any>;
+  assignedTransportCode?: string | null;
 }
 
 export interface UpdateUserDto {
@@ -50,6 +52,7 @@ export interface UpdateUserDto {
   status?: UserStatus;
   accessibleShopifyStores?: string[];
   permissions?: Record<string, any>;
+  assignedTransportCode?: string | null;
 }
 
 // ============================================

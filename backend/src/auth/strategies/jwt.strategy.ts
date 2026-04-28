@@ -43,6 +43,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       status: user.status,
       accessibleShopifyStores: user.accessibleShopifyStores,
       permissions: user.permissions,
+      assignedTransportCode: user.assignedTransportCode ?? null,
     };
   }
 }

@@ -2,21 +2,23 @@
 
 ## Project Structure
 
-Monorepo with 3 deployable services + shared packages:
+Monorepo with 4 deployable services + shared packages:
 
 ```
 Joy/
 ├── backend/          NestJS API (port 4000) — PostgreSQL, TypeORM, Shopify webhooks, VAPID push
 ├── apps/admin/       Next.js admin dashboard (port 4010)
 ├── apps/booking/     Next.js booking PWA with push notifications (port 4020)
+├── apps/driver/      Next.js driver connect app (port 4030) — read-only tour assignments for transporters
 ├── frontend/         Older Next.js frontend — being replaced by apps/
 ├── packages/shared/  Shared types, hooks, utils
 ├── Dockerfile.admin     build context: repo root (needs packages/shared/)
 ├── Dockerfile.booking   build context: repo root
+├── Dockerfile.driver    build context: repo root
 └── docker-compose.yml
 ```
 
-## Deployment: Coolify (3 separate services, same monorepo)
+## Deployment: Coolify (4 separate services, same monorepo)
 
 ### Backend
 - Build context: `backend/`
@@ -40,6 +42,14 @@ Joy/
 - Port: `4020`
 - Build args (**Available at Buildtime ✅**): `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_BOOKING_HOST`, `NEXT_PUBLIC_ADMIN_HOST`, `NEXT_PUBLIC_VAPID_KEY`
 - Runtime env: `NODE_ENV=production`, `PORT=4020`, `HOSTNAME=0.0.0.0`, `API_URL`
+
+### Driver
+- Build context: `.` (repo root)
+- Dockerfile: `Dockerfile.driver`
+- Port: `4030`
+- Build args (**Available at Buildtime ✅**): `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_BOOKING_HOST`, `NEXT_PUBLIC_ADMIN_HOST`
+- Runtime env: `NODE_ENV=production`, `PORT=4030`, `HOSTNAME=0.0.0.0`, `API_URL`
+- Access: Only users with `role=Driver` can log in. Each driver has `assignedTransportCode` linking them to a transport company. They see only orders where `transport=their code` AND `status IN (Completed, Validate)`.
 
 ## Known Issues & Fixes Applied
 

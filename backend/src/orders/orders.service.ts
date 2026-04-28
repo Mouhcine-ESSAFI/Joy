@@ -111,21 +111,21 @@ export class OrdersService {
   ) {
     const query = this.ordersRepository.createQueryBuilder('order');
 
-    // ⭐ Filter by accessible stores for TravelAgent
+    // Filter by accessible stores for TravelAgent
     if (user?.role === 'Travel Agent') {
       if (!user.accessibleShopifyStores || user.accessibleShopifyStores.length === 0) {
-        return {
-          orders: [],
-          total: 0,
-          totalPages: 0,
-          page: params.page,
-          pageSize: params.pageSize,
-        };
+        return { orders: [], total: 0, totalPages: 0, page: params.page, pageSize: params.pageSize };
       }
-      
-      query.andWhere('order.storeId IN (:...stores)', {
-        stores: user.accessibleShopifyStores,
-      });
+      query.andWhere('order.storeId IN (:...stores)', { stores: user.accessibleShopifyStores });
+    }
+
+    // Driver: only see orders assigned to their transport code with Completed or Validate status
+    if (user?.role === 'Driver') {
+      if (!user.assignedTransportCode) {
+        return { orders: [], total: 0, totalPages: 0, page: params.page, pageSize: params.pageSize };
+      }
+      query.andWhere('order.transport = :driverTransport', { driverTransport: user.assignedTransportCode });
+      query.andWhere('order.status IN (:...driverStatuses)', { driverStatuses: ['Completed', 'Validate'] });
     }
 
     // ⭐ FIX: Only add filters if value is truthy and not "undefined" string
@@ -245,17 +245,20 @@ export class OrdersService {
       throw new NotFoundException(`Order with ID ${id} not found`);
     }
 
-      // ⭐ NEW: Check if TravelAgent has access to this order's store
-  if (user?.role === 'Travel Agent') {
-    if (
-      !user.accessibleShopifyStores ||
-      !user.accessibleShopifyStores.includes(order.storeId)
-    ) {
-      throw new ForbiddenException(
-        `You don't have access to orders from store ${order.storeId}`,
-      );
+    if (user?.role === 'Travel Agent') {
+      if (!user.accessibleShopifyStores || !user.accessibleShopifyStores.includes(order.storeId)) {
+        throw new ForbiddenException(`You don't have access to orders from store ${order.storeId}`);
+      }
     }
-  }
+
+    if (user?.role === 'Driver') {
+      if (!user.assignedTransportCode || order.transport !== user.assignedTransportCode) {
+        throw new ForbiddenException(`You don't have access to this order`);
+      }
+      if (!['Completed', 'Validate'].includes(order.status)) {
+        throw new ForbiddenException(`You don't have access to this order`);
+      }
+    }
 
     return order;
   }
