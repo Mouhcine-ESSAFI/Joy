@@ -13,7 +13,7 @@ async function displayOrders() {
     password: process.env.DB_PASSWORD || 'postgres',
     database: process.env.DB_NAME || 'joy_morocco',
     entities: [Order, OrderHistory], // ⭐ Add OrderHistory
-    synchronize: false,
+    synchronize: true,
   });
 
   await AppDataSource.initialize();
