@@ -96,11 +96,11 @@ export class NotificationsService {
     return sent;
   }
 
-  async notifyNewOrder(orderId: string, orderNumber: string, storeId?: string, transport?: string) {
-    // Find users with the allowed roles
+  async notifyNewOrder(orderId: string, orderNumber: string, storeId?: string) {
+    // Drivers are NOT notified on create — new orders are never Completed/Validate
     const eligibleUsers = await this.usersRepo.find({
-      where: { role: In([...NotificationsService.NEW_ORDER_ROLES, UserRole.DRIVER]) },
-      select: ['id', 'role', 'accessibleShopifyStores', 'assignedTransportCode'],
+      where: { role: In(NotificationsService.NEW_ORDER_ROLES) },
+      select: ['id', 'role', 'accessibleShopifyStores'],
     });
 
     if (!eligibleUsers.length) return;
@@ -110,43 +110,86 @@ export class NotificationsService {
         if (!storeId || !u.accessibleShopifyStores?.length) return false;
         return u.accessibleShopifyStores.includes(storeId);
       }
-      if (u.role === UserRole.DRIVER) {
-        if (!transport || !u.assignedTransportCode) return false;
-        return u.assignedTransportCode === transport;
-      }
-      return true; // Owner and Admin always notified
+      return true;
     });
 
     if (!filteredUsers.length) return;
 
-    const eligibleUserIds = filteredUsers.map(u => u.id);
+    await this.sendPushToUsers(
+      filteredUsers.map(u => u.id),
+      {
+        title: `New Order — ${orderNumber}`,
+        body: 'A new booking has just been received. Tap to review it.',
+        icon: '/web-app-manifest-192x192.png',
+        badge: '/web-app-manifest-192x192.png',
+        data: { orderId, orderNumber, url: `/orders/${orderId}` },
+        actions: [
+          { action: 'view', title: 'View Order' },
+          { action: 'dismiss', title: 'Dismiss' },
+        ],
+      },
+      `order ${orderNumber}`,
+    );
+  }
 
-    const subscriptions = await this.subscriptionsRepo.find({
-      where: { userId: In(eligibleUserIds) },
+  // Called from update() when status becomes Completed/Validate OR transport is assigned,
+  // so the driver whose transport matches gets notified.
+  async notifyDriverTourReady(
+    orderId: string,
+    orderNumber: string,
+    transport: string,
+    tourDate?: Date | string | null,
+  ) {
+    if (!transport) return;
+
+    const drivers = await this.usersRepo.find({
+      where: { role: UserRole.DRIVER },
+      select: ['id', 'assignedTransportCode'],
     });
 
-    this.logger.log(
-      `New order ${orderNumber}: notifying ${subscriptions.length} subscription(s) ` +
-      `(roles: Owner, Admin, Travel Agent, Driver)`,
-    );
+    const matchingDriverIds = drivers
+      .filter(d => d.assignedTransportCode === transport)
+      .map(d => d.id);
 
-    if (!subscriptions.length) return;
+    if (!matchingDriverIds.length) return;
 
-    const notification = {
-      title: `New Order — ${orderNumber}`,
-      body: 'A new booking has just been received. Tap to review it.',
-      icon: '/web-app-manifest-192x192.png',
-      badge: '/web-app-manifest-192x192.png',
-      data: {
-        orderId,
-        orderNumber,
-        url: `/orders/${orderId}`,
+    const dateLabel = tourDate
+      ? new Date(tourDate instanceof Date ? tourDate : tourDate + 'T00:00:00')
+          .toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+      : null;
+
+    await this.sendPushToUsers(
+      matchingDriverIds,
+      {
+        title: `Tour Assignment — ${orderNumber}`,
+        body: dateLabel
+          ? `You have a tour on ${dateLabel}. Tap to view details.`
+          : 'A tour has been assigned to you. Tap to view details.',
+        icon: '/icon-192.png',
+        badge: '/icon-192.png',
+        data: { orderId, orderNumber, url: `/orders/${orderId}` },
+        actions: [
+          { action: 'view', title: 'View Tour' },
+          { action: 'dismiss', title: 'Dismiss' },
+        ],
       },
-      actions: [
-        { action: 'view', title: 'View Order' },
-        { action: 'dismiss', title: 'Dismiss' },
-      ],
-    };
+      `driver tour assignment ${orderNumber}`,
+    );
+  }
+
+  private async sendPushToUsers(
+    userIds: string[],
+    notification: Record<string, any>,
+    label: string,
+  ) {
+    const subscriptions = await this.subscriptionsRepo.find({
+      where: { userId: In(userIds) },
+    });
+
+    if (!subscriptions.length) {
+      this.logger.log(`Push [${label}]: no subscriptions found`);
+      return;
+    }
 
     let sentCount = 0;
     let failCount = 0;
@@ -171,6 +214,6 @@ export class NotificationsService {
       this.logger.log(`Removed ${expired.length} expired subscription(s)`);
     }
 
-    this.logger.log(`Push summary for order ${orderNumber}: ${sentCount} sent, ${failCount} failed`);
+    this.logger.log(`Push [${label}]: ${sentCount} sent, ${failCount} failed`);
   }
 }

@@ -201,7 +201,7 @@ export default function DriverOrderDetailPage() {
         {balanceAmount > 0 && (
           <Card className="border-blue-200 bg-blue-50/40">
             <CardHeader className="pb-2 pt-4">
-              <CardTitle className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Balance to Collect</CardTitle>
+              <CardTitle className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Balance Due</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between">

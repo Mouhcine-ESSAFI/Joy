@@ -83,9 +83,9 @@ export class OrdersService {
     
     const saved = await this.ordersRepository.save(order);
 
-    // Notify eligible users (Owner, Admin, Travel Agent) about the new order
+    // Notify Owner, Admin, Travel Agent about the new order
     this.notificationsService
-      .notifyNewOrder(saved.id, saved.shopifyOrderNumber, saved.storeId, saved.transport ?? undefined)
+      .notifyNewOrder(saved.id, saved.shopifyOrderNumber, saved.storeId)
       .catch((err) => this.logger.warn(`Push notification failed for order ${saved.shopifyOrderNumber}: ${err.message}`));
 
     return saved;
@@ -376,6 +376,31 @@ export class OrdersService {
           newValue: String(change.newValue || ''),
         });
       }
+    }
+
+    // Notify driver if the order is now visible to them:
+    // Trigger when status became Completed/Validate OR transport was assigned/changed,
+    // as long as after the save both conditions are true.
+    const driverStatuses: string[] = [OrderStatus.COMPLETED, OrderStatus.VALIDATE];
+    const statusChanged = changes.some(c => c.field === 'status');
+    const transportChanged = changes.some(c => c.field === 'transport');
+
+    const shouldNotifyDriver =
+      savedOrder.transport &&
+      driverStatuses.includes(savedOrder.status) &&
+      (statusChanged || transportChanged);
+
+    if (shouldNotifyDriver) {
+      this.notificationsService
+        .notifyDriverTourReady(
+          savedOrder.id,
+          savedOrder.shopifyOrderNumber,
+          savedOrder.transport!,
+          savedOrder.tourDate,
+        )
+        .catch((err) =>
+          this.logger.warn(`Driver push notification failed for order ${savedOrder.shopifyOrderNumber}: ${err.message}`),
+        );
     }
 
     return savedOrder;
