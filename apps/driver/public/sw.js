@@ -24,7 +24,15 @@ self.addEventListener('push', (event) => {
     ],
   };
 
-  event.waitUntil(self.registration.showNotification(title, options));
+  event.waitUntil(
+    self.registration.showNotification(title, options).then(function () {
+      return self.clients.matchAll({ includeUncontrolled: true, type: 'window' });
+    }).then(function (clients) {
+      clients.forEach(function (client) {
+        client.postMessage({ type: 'PUSH_NOTIFICATION', notification: data });
+      });
+    })
+  );
 });
 
 self.addEventListener('notificationclick', (event) => {

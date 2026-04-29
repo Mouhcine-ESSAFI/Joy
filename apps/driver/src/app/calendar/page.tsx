@@ -110,14 +110,8 @@ export default function DriverCalendarPage() {
                 className="rounded-md border p-2 w-full"
                 showOutsideDays
                 modifiers={{ booked: datesWithOrders }}
-                modifiersStyles={{
-                  booked: {
-                    backgroundColor: 'hsl(var(--primary))',
-                    color: 'hsl(var(--primary-foreground))',
-                    fontWeight: 'bold',
-                    borderRadius: '2px',
-                    margin: '2px',
-                  },
+                modifiersClassNames={{
+                  booked: 'bg-accent text-accent-foreground rounded-md font-medium',
                 }}
               />
             )}

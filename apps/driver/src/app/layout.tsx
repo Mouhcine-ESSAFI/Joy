@@ -4,6 +4,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { AuthProvider } from '@/context/AuthContext';
 import { PushSetup } from '@/components/PushSetup';
+import { NotificationPopup } from '@/components/NotificationPopup';
 
 export const metadata: Metadata = {
   title: 'Joy Driver',
@@ -24,6 +25,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <AuthProvider>
             <PushSetup />
             {children}
+            <NotificationPopup />
             <Toaster />
           </AuthProvider>
         </ThemeProvider>
