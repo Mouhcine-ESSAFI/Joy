@@ -1,18 +1,17 @@
 'use client';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { Loader2, Truck, CalendarDays, LogOut, Bell, BellOff, Download } from 'lucide-react';
+import { Loader2, Truck, CalendarDays, LogOut, Download } from 'lucide-react';
 import { useAuthContext } from '@/context/AuthContext';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
-import { usePushNotifications } from '@/lib/use-push-notifications';
 import { useInstallPrompt } from '@/hooks/use-install-prompt';
+import { NotificationCenter } from '@/components/NotificationCenter';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { isAuthenticated, loading, user, logout } = useAuthContext();
-  const { permission, isSupported, requestPermission } = usePushNotifications();
   const { canInstall, install } = useInstallPrompt();
 
   useEffect(() => {
@@ -42,9 +41,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     router.push('/login');
   };
 
-  const notifGranted = permission === 'granted';
-  const notifDenied = permission === 'denied';
-
   return (
     <div className="min-h-screen flex flex-col bg-muted/30">
       {/* Top nav */}
@@ -72,28 +68,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </button>
           )}
 
-          {/* Notification bell */}
-          {isSupported && !notifDenied && (
-            <button
-              type="button"
-              onClick={() => { if (!notifGranted) requestPermission(); }}
-              title={notifGranted ? 'Notifications enabled' : 'Enable notifications'}
-              className={cn(
-                'relative transition-colors',
-                notifGranted
-                  ? 'text-primary'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              <Bell className="h-5 w-5" />
-              {!notifGranted && (
-                <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-orange-500" />
-              )}
-            </button>
-          )}
-          {isSupported && notifDenied && (
-            <BellOff className="h-5 w-5 text-muted-foreground/50" title="Notifications blocked in browser settings" />
-          )}
+          <NotificationCenter />
 
           <button
             type="button"
