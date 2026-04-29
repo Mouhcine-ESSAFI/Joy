@@ -32,7 +32,7 @@ ENV NEXT_PUBLIC_BOOKING_HOST=$NEXT_PUBLIC_BOOKING_HOST
 ENV NEXT_PUBLIC_ADMIN_HOST=$NEXT_PUBLIC_ADMIN_HOST
 ENV NODE_ENV=production
 
-RUN npm run build
+RUN npm run build && mkdir -p /app/apps/driver/public
 
 # =============================================================
 FROM node:20-alpine AS runner
@@ -48,7 +48,7 @@ RUN apk add --no-cache wget
 # next output: standalone produces a self-contained directory
 COPY --from=builder /app/apps/driver/.next/standalone ./
 COPY --from=builder /app/apps/driver/.next/static ./apps/driver/.next/static
-COPY --from=builder /app/apps/driver/public ./apps/driver/public 2>/dev/null || true
+COPY --from=builder /app/apps/driver/public ./apps/driver/public
 
 EXPOSE 4030
 
