@@ -85,7 +85,7 @@ export class OrdersService {
 
     // Notify eligible users (Owner, Admin, Travel Agent) about the new order
     this.notificationsService
-      .notifyNewOrder(saved.id, saved.shopifyOrderNumber, saved.storeId)
+      .notifyNewOrder(saved.id, saved.shopifyOrderNumber, saved.storeId, saved.transport ?? undefined)
       .catch((err) => this.logger.warn(`Push notification failed for order ${saved.shopifyOrderNumber}: ${err.message}`));
 
     return saved;
@@ -120,12 +120,17 @@ export class OrdersService {
     }
 
     // Driver: only see orders assigned to their transport code with Completed or Validate status
+    // and tourDate within the last month (or in the future)
     if (user?.role === 'Driver') {
       if (!user.assignedTransportCode) {
         return { orders: [], total: 0, totalPages: 0, page: params.page, pageSize: params.pageSize };
       }
+      const oneMonthAgo = new Date();
+      oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+      const oneMonthAgoStr = oneMonthAgo.toISOString().split('T')[0];
       query.andWhere('order.transport = :driverTransport', { driverTransport: user.assignedTransportCode });
       query.andWhere('order.status IN (:...driverStatuses)', { driverStatuses: ['Completed', 'Validate'] });
+      query.andWhere('order.tourDate >= :driverStartDate', { driverStartDate: oneMonthAgoStr });
     }
 
     // ⭐ FIX: Only add filters if value is truthy and not "undefined" string

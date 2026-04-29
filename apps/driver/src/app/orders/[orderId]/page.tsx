@@ -1,7 +1,11 @@
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Clock, Users, MapPin, Tent, BedDouble, Building2, Truck, FileText, Calendar } from 'lucide-react';
+import {
+  ArrowLeft, Clock, Users, MapPin, Tent, BedDouble, Building2,
+  Truck, FileText, CalendarDays, Phone, MessageCircle, CreditCard,
+  StickyNote, Hash, Tag,
+} from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
 import { useOrder } from '@/lib/hooks';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,6 +14,15 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
 import { format } from 'date-fns';
+
+function buildWhatsAppUrl(phone: string, customerName: string, tourDate: string | null, tourCode: string | null) {
+  const clean = phone.replace(/[\s\-().+]/g, '').replace(/^00/, '+').replace(/^0/, '+212');
+  const date = tourDate ? format(new Date(tourDate + 'T00:00:00'), 'dd/MM/yyyy') : '';
+  const msg = encodeURIComponent(
+    `Hello ${customerName}, this is Joy Morocco transport. Your tour${tourCode ? ` (${tourCode})` : ''}${date ? ` on ${date}` : ''} is confirmed. Please be ready for pickup.`
+  );
+  return `https://wa.me/${clean}?text=${msg}`;
+}
 
 export default function DriverOrderDetailPage() {
   const { orderId } = useParams<{ orderId: string }>();
@@ -29,8 +42,9 @@ export default function DriverOrderDetailPage() {
       <AppLayout>
         <div className="space-y-4">
           <Skeleton className="h-10 w-32" />
-          <Skeleton className="h-48 w-full" />
-          <Skeleton className="h-48 w-full" />
+          <Skeleton className="h-40 w-full" />
+          <Skeleton className="h-40 w-full" />
+          <Skeleton className="h-32 w-full" />
         </div>
       </AppLayout>
     );
@@ -54,31 +68,66 @@ export default function DriverOrderDetailPage() {
     ? format(new Date(order.tourDate + 'T00:00:00'), 'EEEE, dd MMM yyyy')
     : null;
 
+  const depositAmount = parseFloat(order.depositAmount || '0');
+  const balanceAmount = parseFloat(order.balanceAmount || '0');
+
   return (
     <AppLayout>
-      <div className="space-y-4">
+      <div className="space-y-4 pb-6">
+        {/* Header */}
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={() => router.back()}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-bold truncate">{order.customerName}</h1>
-            <div className="flex items-center gap-2 mt-0.5">
+            <div className="flex items-center gap-2 flex-wrap mt-0.5">
               <Badge variant="outline" className="text-xs font-mono">{order.shopifyOrderNumber}</Badge>
               <Badge className={getStatusColor(order.status)}>{order.status}</Badge>
+              {order.tourType && (
+                <Badge variant="outline" className="text-xs">{order.tourType}</Badge>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Tour Info */}
+        {/* Customer */}
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Tour Details</CardTitle>
+          <CardHeader className="pb-2 pt-4">
+            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Customer</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-center gap-3">
+              <Users className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              <span className="font-medium">{order.customerName}</span>
+            </div>
+            {order.customerPhone && (
+              <div className="flex items-center gap-3">
+                <Phone className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                <span className="flex-1">{order.customerPhone}</span>
+                <a
+                  href={buildWhatsAppUrl(order.customerPhone, order.customerName, order.tourDate, order.tourCode)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-medium px-3 py-1.5 rounded-full transition-colors"
+                >
+                  <MessageCircle className="h-3.5 w-3.5" />
+                  WhatsApp
+                </a>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Tour Details */}
+        <Card>
+          <CardHeader className="pb-2 pt-4">
+            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Tour Details</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {tourDate && (
               <div className="flex items-center gap-3">
-                <Calendar className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                <CalendarDays className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                 <span className="font-medium">{tourDate}</span>
               </div>
             )}
@@ -94,24 +143,24 @@ export default function DriverOrderDetailPage() {
             </div>
             {order.tourCode && (
               <div className="flex items-center gap-3">
-                <span className="text-xs text-muted-foreground w-4 text-center font-mono">#</span>
-                <span>Tour: <span className="font-medium">{order.tourCode}</span></span>
+                <Hash className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                <span>Code: <span className="font-medium">{order.tourCode}</span></span>
               </div>
             )}
-            {order.tourType && (
+            {order.tourTitle && (
               <div className="flex items-center gap-3">
-                <span className="text-xs text-muted-foreground w-4" />
-                <Badge variant="outline" className="text-xs">{order.tourType}</Badge>
+                <Tag className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                <span className="text-sm">{order.tourTitle}</span>
               </div>
             )}
           </CardContent>
         </Card>
 
-        {/* Pickup & Location */}
+        {/* Pickup */}
         {order.pickupLocation && (
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Pickup Location</CardTitle>
+            <CardHeader className="pb-2 pt-4">
+              <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Pickup Location</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-start gap-3">
@@ -125,8 +174,8 @@ export default function DriverOrderDetailPage() {
         {/* Accommodation */}
         {(order.campType || order.roomType || order.accommodationName) && (
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Accommodation</CardTitle>
+            <CardHeader className="pb-2 pt-4">
+              <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Accommodation</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               {order.campType && (
@@ -151,11 +200,43 @@ export default function DriverOrderDetailPage() {
           </Card>
         )}
 
+        {/* Deposit */}
+        {(depositAmount > 0 || balanceAmount > 0) && (
+          <Card className="border-blue-200 bg-blue-50/40">
+            <CardHeader className="pb-2 pt-4">
+              <CardTitle className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Payment</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {depositAmount > 0 && (
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <CreditCard className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                    <span className="text-sm">Deposit to collect</span>
+                  </div>
+                  <span className="font-bold text-blue-700">{depositAmount.toFixed(2)} {order.currency}</span>
+                </div>
+              )}
+              {balanceAmount > 0 && (
+                <>
+                  {depositAmount > 0 && <Separator className="my-1" />}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <CreditCard className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <span className="text-sm text-muted-foreground">Balance</span>
+                    </div>
+                    <span className="font-medium text-muted-foreground">{balanceAmount.toFixed(2)} {order.currency}</span>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         {/* Transport */}
         {order.transport && (
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Transport</CardTitle>
+            <CardHeader className="pb-2 pt-4">
+              <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Transport</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-3">
@@ -166,11 +247,26 @@ export default function DriverOrderDetailPage() {
           </Card>
         )}
 
+        {/* Note */}
+        {order.note && (
+          <Card>
+            <CardHeader className="pb-2 pt-4">
+              <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Note</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-start gap-3">
+                <StickyNote className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+                <span className="text-sm">{order.note}</span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Driver Notes */}
         {order.driverNotes && (
           <Card className="border-amber-200 bg-amber-50/50">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold text-amber-800 uppercase tracking-wide">Driver Notes</CardTitle>
+            <CardHeader className="pb-2 pt-4">
+              <CardTitle className="text-xs font-semibold text-amber-800 uppercase tracking-wide">Driver Notes</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-start gap-3">

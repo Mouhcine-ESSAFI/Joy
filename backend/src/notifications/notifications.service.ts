@@ -96,20 +96,23 @@ export class NotificationsService {
     return sent;
   }
 
-  async notifyNewOrder(orderId: string, orderNumber: string, storeId?: string) {
-    // Find users with the allowed roles, including their store access list
+  async notifyNewOrder(orderId: string, orderNumber: string, storeId?: string, transport?: string) {
+    // Find users with the allowed roles
     const eligibleUsers = await this.usersRepo.find({
-      where: { role: In(NotificationsService.NEW_ORDER_ROLES) },
-      select: ['id', 'role', 'accessibleShopifyStores'],
+      where: { role: In([...NotificationsService.NEW_ORDER_ROLES, UserRole.DRIVER]) },
+      select: ['id', 'role', 'accessibleShopifyStores', 'assignedTransportCode'],
     });
 
     if (!eligibleUsers.length) return;
 
-    // Travel Agents only get notified for stores they have access to
     const filteredUsers = eligibleUsers.filter((u) => {
       if (u.role === UserRole.TRAVEL_AGENT) {
         if (!storeId || !u.accessibleShopifyStores?.length) return false;
         return u.accessibleShopifyStores.includes(storeId);
+      }
+      if (u.role === UserRole.DRIVER) {
+        if (!transport || !u.assignedTransportCode) return false;
+        return u.assignedTransportCode === transport;
       }
       return true; // Owner and Admin always notified
     });
@@ -124,7 +127,7 @@ export class NotificationsService {
 
     this.logger.log(
       `New order ${orderNumber}: notifying ${subscriptions.length} subscription(s) ` +
-      `(roles: Owner, Admin, Travel Agent)`,
+      `(roles: Owner, Admin, Travel Agent, Driver)`,
     );
 
     if (!subscriptions.length) return;
