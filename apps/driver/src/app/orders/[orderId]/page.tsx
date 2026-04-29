@@ -4,10 +4,10 @@ import { useParams, useRouter } from 'next/navigation';
 import {
   ArrowLeft, Clock, Users, MapPin, Tent, BedDouble, Building2,
   Truck, FileText, CalendarDays, Phone, MessageCircle, CreditCard,
-  StickyNote, Hash, Tag,
+  StickyNote, Hash, Tag, ListPlus,
 } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
-import { useOrder } from '@/lib/hooks';
+import { useOrder, useSupplements } from '@/lib/hooks';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -26,7 +26,9 @@ function buildWhatsAppUrl(phone: string, customerName: string, tourDate: string 
 export default function DriverOrderDetailPage() {
   const { orderId } = useParams<{ orderId: string }>();
   const router = useRouter();
-  const { order, loading } = useOrder(orderId);
+  const { order, loading: orderLoading } = useOrder(orderId);
+  const { supplements, loading: supplementsLoading } = useSupplements(orderId);
+  const loading = orderLoading || supplementsLoading;
 
   const getStatusColor = (status?: string) => {
     switch (status) {
@@ -67,7 +69,8 @@ export default function DriverOrderDetailPage() {
     ? format(new Date(order.tourDate + 'T00:00:00'), 'EEEE, dd MMM yyyy')
     : null;
 
-  const balanceAmount = parseFloat(order.balanceAmount || '0');
+  const totalSupplements = supplements.reduce((sum, s) => sum + Number(s.amount || 0), 0);
+  const balanceDue = Number(order.lineItemPrice || 0) + totalSupplements - Number(order.depositAmount || 0);
 
   return (
     <AppLayout>
@@ -198,18 +201,30 @@ export default function DriverOrderDetailPage() {
         )}
 
         {/* Balance to pay */}
-        {balanceAmount > 0 && (
+        {balanceDue > 0 && (
           <Card className="border-blue-200 bg-blue-50/40">
             <CardHeader className="pb-2 pt-4">
               <CardTitle className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Balance Due</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-2">
+              {supplements.length > 0 && (
+                <div className="space-y-1 pb-2 border-b border-blue-100">
+                  {supplements.map((s) => (
+                    <div key={s.id} className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <ListPlus className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />
+                      <span>{s.label}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <CreditCard className="h-4 w-4 text-blue-600 flex-shrink-0" />
                   <span className="text-sm font-medium">Amount due from customer</span>
                 </div>
-                <span className="font-bold text-blue-700 text-lg">{balanceAmount.toFixed(2)} {order.currency}</span>
+                <span className="font-bold text-blue-700 text-lg">
+                  {new Intl.NumberFormat('de-DE', { style: 'currency', currency: order.currency || 'EUR' }).format(balanceDue)}
+                </span>
               </div>
             </CardContent>
           </Card>
