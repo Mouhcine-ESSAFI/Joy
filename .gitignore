@@ -34,8 +34,9 @@ node_modules/
 !.env.example
 !**/.env.example
 !**/.env.local.example
-# Booking app .env.production contains only the public VAPID key (not a secret — safe to commit)
+# .env.production files for apps contain only the public VAPID key (not a secret — safe to commit)
 !apps/booking/.env.production
+!apps/driver/.env.production
 
 # ========================
 # Logs

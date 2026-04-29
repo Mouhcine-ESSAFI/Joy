@@ -12,7 +12,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Separator } from '@/components/ui/separator';
 import { format } from 'date-fns';
 
 function buildWhatsAppUrl(phone: string, customerName: string, tourDate: string | null, tourCode: string | null) {
@@ -68,7 +67,6 @@ export default function DriverOrderDetailPage() {
     ? format(new Date(order.tourDate + 'T00:00:00'), 'EEEE, dd MMM yyyy')
     : null;
 
-  const depositAmount = parseFloat(order.depositAmount || '0');
   const balanceAmount = parseFloat(order.balanceAmount || '0');
 
   return (
@@ -83,7 +81,6 @@ export default function DriverOrderDetailPage() {
             <h1 className="text-lg font-bold truncate">{order.customerName}</h1>
             <div className="flex items-center gap-2 flex-wrap mt-0.5">
               <Badge variant="outline" className="text-xs font-mono">{order.shopifyOrderNumber}</Badge>
-              <Badge className={getStatusColor(order.status)}>{order.status}</Badge>
               {order.tourType && (
                 <Badge variant="outline" className="text-xs">{order.tourType}</Badge>
               )}
@@ -200,34 +197,20 @@ export default function DriverOrderDetailPage() {
           </Card>
         )}
 
-        {/* Deposit */}
-        {(depositAmount > 0 || balanceAmount > 0) && (
+        {/* Balance to pay */}
+        {balanceAmount > 0 && (
           <Card className="border-blue-200 bg-blue-50/40">
             <CardHeader className="pb-2 pt-4">
-              <CardTitle className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Payment</CardTitle>
+              <CardTitle className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Balance to Collect</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2">
-              {depositAmount > 0 && (
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <CreditCard className="h-4 w-4 text-blue-600 flex-shrink-0" />
-                    <span className="text-sm">Deposit to collect</span>
-                  </div>
-                  <span className="font-bold text-blue-700">{depositAmount.toFixed(2)} {order.currency}</span>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <CreditCard className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                  <span className="text-sm font-medium">Amount due from customer</span>
                 </div>
-              )}
-              {balanceAmount > 0 && (
-                <>
-                  {depositAmount > 0 && <Separator className="my-1" />}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <CreditCard className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                      <span className="text-sm text-muted-foreground">Balance</span>
-                    </div>
-                    <span className="font-medium text-muted-foreground">{balanceAmount.toFixed(2)} {order.currency}</span>
-                  </div>
-                </>
-              )}
+                <span className="font-bold text-blue-700 text-lg">{balanceAmount.toFixed(2)} {order.currency}</span>
+              </div>
             </CardContent>
           </Card>
         )}
