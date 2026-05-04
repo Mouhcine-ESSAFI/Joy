@@ -1,27 +1,38 @@
 'use client';
+
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { Loader2, Truck, CalendarDays, LogOut, Download } from 'lucide-react';
+import { Loader2, Truck, CalendarDays, LogOut } from 'lucide-react';
 import { useAuthContext } from '@/context/AuthContext';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
-import { useInstallPrompt } from '@/hooks/use-install-prompt';
 import { NotificationCenter } from '@/components/NotificationCenter';
+import { InstallAppButton } from '@/components/InstallAppButton';
+import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+
+function getInitials(name?: string | null) {
+  if (!name) return 'D';
+  return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+}
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { isAuthenticated, loading, user, logout } = useAuthContext();
-  const { canInstall, install } = useInstallPrompt();
 
   useEffect(() => {
     if (loading) return;
-    if (!isAuthenticated && pathname !== '/login') {
-      router.push('/login');
-    }
-    if (isAuthenticated && pathname === '/login') {
-      router.replace('/calendar');
-    }
+    if (!isAuthenticated && pathname !== '/login') router.push('/login');
+    if (isAuthenticated && pathname === '/login') router.replace('/calendar');
   }, [pathname, isAuthenticated, loading, router]);
 
   if (pathname === '/login') return <>{children}</>;
@@ -44,40 +55,47 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen flex flex-col bg-muted/30">
       {/* Top nav */}
-      <header className="sticky top-0 z-10 bg-background border-b px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
+      <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background px-4 sm:px-6">
+        {/* Logo */}
+        <div className="flex items-center gap-2 mr-auto">
           <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center">
             <Truck className="h-4 w-4 text-primary-foreground" />
           </div>
           <span className="font-semibold text-sm">Joy Driver</span>
         </div>
 
+        {/* Right side actions */}
         <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground hidden sm:block">{user?.name}</span>
-
-          {/* Install button — only visible when installable */}
-          {canInstall && (
-            <button
-              type="button"
-              onClick={install}
-              className="flex items-center gap-1.5 text-xs font-medium bg-primary text-primary-foreground px-2.5 py-1.5 rounded-full transition-opacity hover:opacity-90"
-              title="Install app"
-            >
-              <Download className="h-3.5 w-3.5" />
-              Install
-            </button>
-          )}
-
+          <InstallAppButton />
           <NotificationCenter />
 
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="text-muted-foreground hover:text-foreground transition-colors"
-            title="Sign out"
-          >
-            <LogOut className="h-5 w-5" />
-          </button>
+          {/* User avatar dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="relative h-9 w-9 rounded-full p-0">
+                <Avatar className="h-9 w-9">
+                  <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                    {getInitials(user?.name)}
+                  </AvatarFallback>
+                </Avatar>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuLabel>
+                <div className="flex flex-col space-y-0.5">
+                  <p className="text-sm font-medium leading-none">{user?.name || 'Driver'}</p>
+                  <span className="mt-1 inline-block text-[10px] font-medium text-muted-foreground border rounded px-1.5 py-0.5 w-fit">
+                    Driver
+                  </span>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
+                <LogOut className="h-4 w-4 mr-2" />
+                Sign out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </header>
 

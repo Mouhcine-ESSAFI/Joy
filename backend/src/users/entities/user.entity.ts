@@ -1,5 +1,6 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { Exclude } from 'class-transformer';
+import { TransportType } from '../../transport-types/entities/transport-type.entity';
 
 export enum UserRole {
   OWNER = 'Owner',
@@ -54,6 +55,10 @@ export class User {
 
   @Column({ type: 'varchar', nullable: true })
   assignedTransportCode: string | null;
+
+  @ManyToOne(() => TransportType, { nullable: true, eager: false, createForeignKeyConstraints: false })
+  @JoinColumn({ name: 'assignedTransportCode', referencedColumnName: 'code' })
+  assignedTransport: TransportType;
 
   @Column({ type: 'varchar', nullable: true })
   refreshTokenHash: string | null;

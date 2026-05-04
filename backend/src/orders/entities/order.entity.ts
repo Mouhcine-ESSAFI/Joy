@@ -13,6 +13,7 @@ import { ShopifyStore } from '../../shopify-stores/entities/shopify-store.entity
 import { User } from '../../users/entities/user.entity';
 import { Supplement } from '../../supplements/entities/supplement.entity';
 import { OrderHistory } from './order-history.entity';
+import { TransportType } from '../../transport-types/entities/transport-type.entity';
 
 export enum OrderStatus {
   NEW = 'New',
@@ -175,6 +176,10 @@ export class Order {
   @Column({ nullable: true })
   @Index()
   transport: string;
+
+  @ManyToOne(() => TransportType, { nullable: true, eager: false, createForeignKeyConstraints: false })
+  @JoinColumn({ name: 'transport', referencedColumnName: 'code' })
+  transportType: TransportType;
 
   @Column({ type: 'text', nullable: true })
   note: string;

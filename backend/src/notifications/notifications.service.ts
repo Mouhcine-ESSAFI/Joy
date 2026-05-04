@@ -142,16 +142,28 @@ export class NotificationsService {
   ) {
     if (!transport) return;
 
-    const drivers = await this.usersRepo.find({
+    // Use exact match via relation — transport code must equal assignedTransportCode
+    const allDrivers = await this.usersRepo.find({
       where: { role: UserRole.DRIVER },
       select: ['id', 'assignedTransportCode'],
     });
 
-    const matchingDriverIds = drivers
-      .filter(d => d.assignedTransportCode === transport)
+    this.logger.log(
+      `Driver notify [${orderNumber}]: looking for transport="${transport}" among ${allDrivers.length} driver(s): ${JSON.stringify(allDrivers.map(d => ({ id: d.id, code: d.assignedTransportCode })))}`,
+    );
+
+    const matchingDriverIds = allDrivers
+      .filter(d => d.assignedTransportCode && d.assignedTransportCode.trim() === transport.trim())
       .map(d => d.id);
 
-    if (!matchingDriverIds.length) return;
+    if (!matchingDriverIds.length) {
+      this.logger.warn(
+        `Driver notify [${orderNumber}]: no driver matched transport="${transport}". Ensure driver's assignedTransportCode exactly matches the order transport code.`,
+      );
+      return;
+    }
+
+    this.logger.log(`Driver notify [${orderNumber}]: matched ${matchingDriverIds.length} driver(s) → notifying`);
 
     const dateLabel = tourDate
       ? new Date(tourDate instanceof Date ? tourDate : tourDate + 'T00:00:00')
@@ -174,6 +186,94 @@ export class NotificationsService {
         ],
       },
       `driver tour assignment ${orderNumber}`,
+    );
+  }
+
+  async notifyDriverTourUpdated(
+    orderId: string,
+    orderNumber: string,
+    transport: string,
+    changes: Array<{ field: string; oldValue: any; newValue: any }>,
+  ) {
+    if (!transport || !changes.length) return;
+
+    const allDrivers = await this.usersRepo.find({
+      where: { role: UserRole.DRIVER },
+      select: ['id', 'assignedTransportCode'],
+    });
+
+    const matchingDriverIds = allDrivers
+      .filter(d => d.assignedTransportCode && d.assignedTransportCode.trim() === transport.trim())
+      .map(d => d.id);
+
+    if (!matchingDriverIds.length) return;
+
+    const fieldLabels: Record<string, string> = {
+      status: 'Status',
+      tourDate: 'Date',
+      tourHour: 'Hour',
+      pax: 'Passengers',
+      tourType: 'Tour type',
+      campType: 'Camp',
+      roomType: 'Room',
+      pickupLocation: 'Pickup',
+      accommodationName: 'Accommodation',
+      transport: 'Transport',
+      note: 'Note',
+      driverNotes: 'Driver notes',
+    };
+
+    const summary = changes
+      .map(c => {
+        const label = fieldLabels[c.field] ?? c.field;
+        const oldVal = c.oldValue ?? '—';
+        const newVal = c.newValue ?? '—';
+        return `${label}: ${oldVal} → ${newVal}`;
+      })
+      .join(', ');
+
+    await this.sendPushToUsers(
+      matchingDriverIds,
+      {
+        title: `Tour Updated — ${orderNumber}`,
+        body: summary || 'Your tour details have been updated. Tap to view.',
+        icon: '/icon-192.png',
+        badge: '/icon-192.png',
+        data: { orderId, orderNumber, url: `/orders/${orderId}` },
+        actions: [
+          { action: 'view', title: 'View Tour' },
+          { action: 'dismiss', title: 'Dismiss' },
+        ],
+      },
+      `driver tour update ${orderNumber}`,
+    );
+  }
+
+  async notifyDriverTourRemoved(orderId: string, orderNumber: string, transport: string) {
+    if (!transport) return;
+
+    const allDrivers = await this.usersRepo.find({
+      where: { role: UserRole.DRIVER },
+      select: ['id', 'assignedTransportCode'],
+    });
+
+    const matchingDriverIds = allDrivers
+      .filter(d => d.assignedTransportCode && d.assignedTransportCode.trim() === transport.trim())
+      .map(d => d.id);
+
+    if (!matchingDriverIds.length) return;
+
+    await this.sendPushToUsers(
+      matchingDriverIds,
+      {
+        title: `Tour Unassigned — ${orderNumber}`,
+        body: 'A tour has been removed from your schedule.',
+        icon: '/icon-192.png',
+        badge: '/icon-192.png',
+        data: { orderId, orderNumber, url: `/calendar` },
+        actions: [{ action: 'dismiss', title: 'Dismiss' }],
+      },
+      `driver tour removed ${orderNumber}`,
     );
   }
 

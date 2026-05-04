@@ -119,8 +119,7 @@ export class OrdersService {
       query.andWhere('order.storeId IN (:...stores)', { stores: user.accessibleShopifyStores });
     }
 
-    // Driver: only see orders assigned to their transport code with Completed or Validate status
-    // and tourDate within the last month (or in the future)
+    // Driver: see ALL orders assigned to their transport, from last month onward (any status)
     if (user?.role === 'Driver') {
       if (!user.assignedTransportCode) {
         return { orders: [], total: 0, totalPages: 0, page: params.page, pageSize: params.pageSize };
@@ -129,7 +128,6 @@ export class OrdersService {
       oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
       const oneMonthAgoStr = oneMonthAgo.toISOString().split('T')[0];
       query.andWhere('order.transport = :driverTransport', { driverTransport: user.assignedTransportCode });
-      query.andWhere('order.status IN (:...driverStatuses)', { driverStatuses: ['Completed', 'Validate'] });
       query.andWhere('order.tourDate >= :driverStartDate', { driverStartDate: oneMonthAgoStr });
     }
 
@@ -260,9 +258,6 @@ export class OrdersService {
       if (!user.assignedTransportCode || order.transport !== user.assignedTransportCode) {
         throw new ForbiddenException(`You don't have access to this order`);
       }
-      if (!['Completed', 'Validate'].includes(order.status)) {
-        throw new ForbiddenException(`You don't have access to this order`);
-      }
     }
 
     return order;
@@ -378,29 +373,39 @@ export class OrdersService {
       }
     }
 
-    // Notify driver if the order is now visible to them:
-    // Trigger when status became Completed/Validate OR transport was assigned/changed,
-    // as long as after the save both conditions are true.
-    const driverStatuses: string[] = [OrderStatus.COMPLETED, OrderStatus.VALIDATE];
-    const statusChanged = changes.some(c => c.field === 'status');
+    // Notify driver whenever their transport code is involved:
+    // - Transport just assigned/changed → "Tour Assignment" notification
+    // - Any other field changed on an order that already has transport → "Tour Updated" notification
     const transportChanged = changes.some(c => c.field === 'transport');
+    const relevantChanges = changes.filter(c => c.field !== 'driverId');
 
-    const shouldNotifyDriver =
-      savedOrder.transport &&
-      driverStatuses.includes(savedOrder.status) &&
-      (statusChanged || transportChanged);
+    this.logger.log(
+      `Order ${savedOrder.shopifyOrderNumber}: transport="${savedOrder.transport}" transportChanged=${transportChanged} changes=[${relevantChanges.map(c => c.field).join(',')}]`,
+    );
 
-    if (shouldNotifyDriver) {
+    const transportChange = changes.find(c => c.field === 'transport');
+
+    if (transportChanged && !savedOrder.transport && transportChange?.oldValue) {
+      // Transport removed — notify the OLD driver their tour was unassigned
       this.notificationsService
-        .notifyDriverTourReady(
-          savedOrder.id,
-          savedOrder.shopifyOrderNumber,
-          savedOrder.transport!,
-          savedOrder.tourDate,
-        )
-        .catch((err) =>
-          this.logger.warn(`Driver push notification failed for order ${savedOrder.shopifyOrderNumber}: ${err.message}`),
-        );
+        .notifyDriverTourRemoved(savedOrder.id, savedOrder.shopifyOrderNumber, transportChange.oldValue)
+        .catch((err) => this.logger.warn(`Driver removal notif failed [${savedOrder.shopifyOrderNumber}]: ${err.message}`));
+    } else if (savedOrder.transport && transportChanged) {
+      // Transport assigned or changed to a new code — notify new driver
+      this.notificationsService
+        .notifyDriverTourReady(savedOrder.id, savedOrder.shopifyOrderNumber, savedOrder.transport!, savedOrder.tourDate)
+        .catch((err) => this.logger.warn(`Driver assignment notif failed [${savedOrder.shopifyOrderNumber}]: ${err.message}`));
+      // If transport changed FROM another code, also notify the old driver they were removed
+      if (transportChange?.oldValue) {
+        this.notificationsService
+          .notifyDriverTourRemoved(savedOrder.id, savedOrder.shopifyOrderNumber, transportChange.oldValue)
+          .catch((err) => this.logger.warn(`Driver removal notif failed [${savedOrder.shopifyOrderNumber}]: ${err.message}`));
+      }
+    } else if (savedOrder.transport && relevantChanges.length > 0) {
+      // Any other field changed on an already-assigned order — notify driver with details
+      this.notificationsService
+        .notifyDriverTourUpdated(savedOrder.id, savedOrder.shopifyOrderNumber, savedOrder.transport!, relevantChanges)
+        .catch((err) => this.logger.warn(`Driver update notif failed [${savedOrder.shopifyOrderNumber}]: ${err.message}`));
     }
 
     return savedOrder;
