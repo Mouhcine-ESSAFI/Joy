@@ -14,7 +14,7 @@ export function InstallAppButton() {
       type="button"
       variant="outline"
       size="sm"
-      className="hidden sm:flex items-center gap-1.5 h-8 text-xs"
+      className="flex items-center gap-1.5 h-8 text-xs"
       onClick={install}
     >
       <Download className="h-3.5 w-3.5" />

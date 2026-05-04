@@ -250,9 +250,6 @@ export default function DriverCalendarPage() {
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold truncate">{order.customerName}</p>
                         <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                          {order.tourCode && (
-                            <span className="text-[10px] font-mono text-muted-foreground border rounded px-1 py-px">{order.tourCode}</span>
-                          )}
                           {order.tourHour && (
                             <span className="text-xs text-muted-foreground flex items-center gap-0.5">
                               <Clock className="h-3 w-3" />{order.tourHour}
@@ -360,9 +357,6 @@ function TourCard({
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
             <p className="font-semibold text-sm truncate">{order.customerName}</p>
-            {order.tourCode && (
-              <Badge variant="outline" className="text-xs font-mono mt-0.5">{order.tourCode}</Badge>
-            )}
           </div>
           <Badge className={`text-xs shrink-0 border-0 ${getStatusColor(order.status)}`}>
             {order.status}

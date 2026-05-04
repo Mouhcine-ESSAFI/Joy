@@ -4,7 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import {
   ArrowLeft, Clock, Users, MapPin, Tent, BedDouble, Building2,
   FileText, CalendarDays, Phone, MessageCircle, CreditCard,
-  StickyNote, Hash, ListPlus, Timer, Navigation, PlaneLanding, XCircle,
+  StickyNote, ListPlus, Timer, Navigation, PlaneLanding, XCircle,
 } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
 import { useOrder, useSupplements } from '@/lib/hooks';
@@ -14,11 +14,11 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 
-function buildWhatsAppUrl(phone: string, customerName: string, tourDate: string | null, tourCode: string | null) {
+function buildWhatsAppUrl(phone: string, customerName: string, tourDate: string | null) {
   const clean = phone.replace(/[\s\-().+]/g, '').replace(/^00/, '+').replace(/^0/, '+212');
   const date = tourDate ? format(new Date(tourDate + 'T00:00:00'), 'dd/MM/yyyy') : '';
   const msg = encodeURIComponent(
-    `Hello ${customerName}, this is Joy Morocco transport. Your tour${tourCode ? ` (${tourCode})` : ''}${date ? ` on ${date}` : ''} is confirmed. Please be ready for pickup.`
+    `Hello ${customerName}, this is Joy Morocco transport. Your tour${date ? ` on ${date}` : ''} is confirmed. Please be ready for pickup.`
   );
   return `https://wa.me/${clean}?text=${msg}`;
 }
@@ -40,6 +40,12 @@ function getProp(props: Record<string, any> | null | undefined, ...keys: string[
     if (val && String(val).trim()) return String(val).trim();
   }
   return null;
+}
+
+// Strip trailing price annotations like "(+45€)" or "(45 EUR)" from variant labels
+function stripPrice(value: string | null | undefined): string | null {
+  if (!value) return null;
+  return value.replace(/\s*\([^)]*[€$£¥].*?\)/g, '').trim() || null;
 }
 
 export default function DriverOrderDetailPage() {
@@ -85,36 +91,24 @@ export default function DriverOrderDetailPage() {
   const totalSupplements = supplements.reduce((sum, s) => sum + Number(s.amount || 0), 0);
   const balanceDue = Number(order.lineItemPrice || 0) + totalSupplements - Number(order.depositAmount || 0);
 
-  // Extract Duration / Departure / Arrival from line item properties
-  const duration = getProp(order.lineItemProperties, 'Duration', 'Days', 'Nights', 'duration');
-  const departure = getProp(order.lineItemProperties, 'Departure', 'Departure Location', 'From', 'departure');
-  const arrival = getProp(order.lineItemProperties, 'Arrival', 'Arrival Location', 'Arrival Date', 'To', 'arrival');
+  // Shopify product metafield names: Duration, From, To
+  const duration = getProp(order.lineItemProperties, 'Duration');
+  const departure = getProp(order.lineItemProperties, 'From');
+  const arrival = getProp(order.lineItemProperties, 'To');
 
-  const tourHeaderParts = [duration, departure, arrival].filter(Boolean);
-  const tourHeader = tourHeaderParts.length > 0
-    ? tourHeaderParts.join(' — ')
-    : (order.tourTitle || null);
+  const campType = stripPrice(order.campType);
+  const roomType = stripPrice(order.roomType);
 
   return (
     <AppLayout>
       <div className="space-y-4 pb-6">
-        {/* Header — Tour ID left, type right */}
+        {/* Header — order number left, tour type right */}
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={() => router.back()}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div className="flex-1 min-w-0 flex items-center justify-between gap-2">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <Badge variant="outline" className="text-xs font-mono">{order.shopifyOrderNumber}</Badge>
-                {order.tourCode && (
-                  <Badge variant="outline" className="text-xs font-mono">{order.tourCode}</Badge>
-                )}
-              </div>
-              {tourHeader && (
-                <p className="text-sm font-semibold mt-1 truncate">{tourHeader}</p>
-              )}
-            </div>
+            <Badge variant="outline" className="text-xs font-mono">{order.shopifyOrderNumber}</Badge>
             {order.tourType && (
               <Badge variant="secondary" className="text-xs shrink-0">{order.tourType}</Badge>
             )}
@@ -136,7 +130,7 @@ export default function DriverOrderDetailPage() {
                 <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
                 <span className="flex-1 text-sm">{order.customerPhone}</span>
                 <a
-                  href={buildWhatsAppUrl(order.customerPhone, order.customerName, order.tourDate, order.tourCode)}
+                  href={buildWhatsAppUrl(order.customerPhone, order.customerName, order.tourDate)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-medium px-3 py-1.5 rounded-full transition-colors shrink-0"
@@ -164,7 +158,7 @@ export default function DriverOrderDetailPage() {
           </Card>
         )}
 
-        {/* 3 — Balance Due (neutral colors) */}
+        {/* 3 — Balance Due */}
         {balanceDue > 0 && (
           <Card>
             <CardHeader className="pb-2 pt-4">
@@ -234,32 +228,26 @@ export default function DriverOrderDetailPage() {
                 <span className="text-sm">{arrival}</span>
               </div>
             )}
-            {order.tourCode && (
-              <div className="flex items-center gap-3">
-                <Hash className="h-4 w-4 text-muted-foreground shrink-0" />
-                <span className="text-sm font-mono">{order.tourCode}</span>
-              </div>
-            )}
           </CardContent>
         </Card>
 
         {/* 5 — Accommodation */}
-        {(order.campType || order.roomType || order.accommodationName) && (
+        {(campType || roomType || order.accommodationName) && (
           <Card>
             <CardHeader className="pb-2 pt-4">
               <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Accommodation</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {order.campType && (
+              {campType && (
                 <div className="flex items-center gap-3">
                   <Tent className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <span>Camp: <span className="font-medium">{order.campType}</span></span>
+                  <span>Camp: <span className="font-medium">{campType}</span></span>
                 </div>
               )}
-              {order.roomType && (
+              {roomType && (
                 <div className="flex items-center gap-3">
                   <BedDouble className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <span>Room: <span className="font-medium">{order.roomType}</span></span>
+                  <span>Room: <span className="font-medium">{roomType}</span></span>
                 </div>
               )}
               {order.accommodationName && (
@@ -302,7 +290,7 @@ export default function DriverOrderDetailPage() {
           </Card>
         )}
 
-        {/* Canceled banner — always at bottom */}
+        {/* Canceled banner */}
         {isCanceled && (
           <Card className="border-red-200 bg-red-50/50">
             <CardContent className="pt-4 pb-4">
