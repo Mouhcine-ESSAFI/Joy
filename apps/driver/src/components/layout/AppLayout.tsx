@@ -2,9 +2,10 @@
 
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { Loader2, Truck, CalendarDays, LogOut, Sun, Moon, Download } from 'lucide-react';
+import { Loader2, Truck, CalendarDays, LogOut, Sun, Moon, Laptop, Download } from 'lucide-react';
 import { useAuthContext } from '@/context/AuthContext';
 import { useTheme } from 'next-themes';
+import { useLocalStorage } from '@/hooks/use-local-storage';
 import { useInstallPrompt } from '@/hooks/use-install-prompt';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -16,7 +17,11 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuPortal,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
@@ -29,7 +34,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { isAuthenticated, loading, user, logout } = useAuthContext();
-  const { theme, setTheme } = useTheme();
+  const { setTheme } = useTheme();
+  const [, rawSetTheme] = useLocalStorage('joy-theme', 'system');
   const { canInstall, install } = useInstallPrompt();
 
   useEffect(() => {
@@ -55,13 +61,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     router.push('/login');
   };
 
-  const isDark = theme === 'dark';
+  const applyTheme = (t: string) => {
+    setTheme(t);
+    rawSetTheme(t as any);
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-muted/30">
       {/* Top nav */}
       <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background px-4 sm:px-6">
-        {/* Logo */}
         <div className="flex items-center gap-2 mr-auto">
           <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center">
             <Truck className="h-4 w-4 text-primary-foreground" />
@@ -69,11 +77,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <span className="font-semibold text-sm">Joy Driver</span>
         </div>
 
-        {/* Right side actions */}
         <div className="flex items-center gap-2">
           <NotificationCenter />
 
-          {/* User avatar dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-9 w-9 rounded-full p-0">
@@ -95,21 +101,38 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
 
-              {/* Theme toggle */}
-              <DropdownMenuItem onClick={() => setTheme(isDark ? 'light' : 'dark')}>
-                {isDark
-                  ? <Sun className="h-4 w-4 mr-2" />
-                  : <Moon className="h-4 w-4 mr-2" />}
-                {isDark ? 'Light mode' : 'Dark mode'}
-              </DropdownMenuItem>
+              {/* Theme submenu — same pattern as booking app */}
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <Sun className="mr-2 h-4 w-4" />
+                  <span>Theme</span>
+                </DropdownMenuSubTrigger>
+                <DropdownMenuPortal>
+                  <DropdownMenuSubContent>
+                    <DropdownMenuItem onClick={() => applyTheme('light')}>
+                      <Sun className="mr-2 h-4 w-4" />
+                      <span>Light</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => applyTheme('dark')}>
+                      <Moon className="mr-2 h-4 w-4" />
+                      <span>Dark</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => applyTheme('system')}>
+                      <Laptop className="mr-2 h-4 w-4" />
+                      <span>System</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuSubContent>
+                </DropdownMenuPortal>
+              </DropdownMenuSub>
 
-              {/* Install app — only shown when browser supports it */}
-              {canInstall && (
-                <DropdownMenuItem onClick={install}>
-                  <Download className="h-4 w-4 mr-2" />
-                  Install App
-                </DropdownMenuItem>
-              )}
+              {/* Install App — always visible; greyed out when not installable */}
+              <DropdownMenuItem
+                onClick={() => { if (canInstall) install(); }}
+                className={!canInstall ? 'opacity-40 cursor-default' : ''}
+              >
+                <Download className="mr-2 h-4 w-4" />
+                <span>Install App</span>
+              </DropdownMenuItem>
 
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
@@ -121,12 +144,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      {/* Main content */}
       <main className="flex-1 p-4 max-w-2xl mx-auto w-full">
         {children}
       </main>
 
-      {/* Bottom nav */}
       <nav className="sticky bottom-0 bg-background border-t flex">
         <Link
           href="/calendar"
