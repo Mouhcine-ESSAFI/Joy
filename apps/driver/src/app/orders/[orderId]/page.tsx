@@ -104,7 +104,7 @@ export default function DriverOrderDetailPage() {
   // Shopify product metafield names: Duration, From, To
   const duration = getProp(order.lineItemProperties, order.shopifyMetadata, 'Duration', 'duration');
   const departure = getProp(order.lineItemProperties, order.shopifyMetadata, 'From', 'from');
-  const arrival = getProp(order.lineItemProperties, order.shopifyMetadata, 'To', 'to', 'to_', 'To_');
+  const arrival = getProp(order.lineItemProperties, order.shopifyMetadata, 'To', 'to_');
 
   const campType = stripPrice(order.campType);
   const roomType = stripPrice(order.roomType);
