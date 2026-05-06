@@ -1,3 +1,80 @@
+const CACHE = 'joy-driver-v2';
+
+const PRECACHE = [
+  '/',
+  '/calendar',
+  '/manifest.json',
+  '/icon-192.png',
+  '/icon-512.png',
+];
+
+// ─── Install: pre-cache shell ────────────────────────────────────────────────
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE).then((cache) => cache.addAll(PRECACHE))
+  );
+  self.skipWaiting();
+});
+
+// ─── Activate: purge old caches ──────────────────────────────────────────────
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))
+    )
+  );
+  self.clients.claim();
+});
+
+// ─── Fetch: caching strategy ─────────────────────────────────────────────────
+self.addEventListener('fetch', (event) => {
+  const { request } = event;
+  if (request.method !== 'GET') return;
+
+  const url = new URL(request.url);
+
+  // Next.js static chunks → cache-first (they're content-hashed)
+  if (url.pathname.startsWith('/_next/static/')) {
+    event.respondWith(
+      caches.match(request).then(
+        (cached) => cached || fetch(request).then((res) => {
+          if (res.ok) caches.open(CACHE).then((c) => c.put(request, res.clone()));
+          return res;
+        })
+      )
+    );
+    return;
+  }
+
+  // API calls (/api/*) → network-first, fall back to cache so offline works
+  if (url.pathname.startsWith('/api/')) {
+    event.respondWith(
+      fetch(request)
+        .then((res) => {
+          if (res.ok) {
+            const clone = res.clone();
+            caches.open(CACHE).then((c) => c.put(request, clone));
+          }
+          return res;
+        })
+        .catch(() => caches.match(request))
+    );
+    return;
+  }
+
+  // Pages → stale-while-revalidate
+  event.respondWith(
+    caches.match(request).then((cached) => {
+      const network = fetch(request).then((res) => {
+        if (res.ok) caches.open(CACHE).then((c) => c.put(request, res.clone()));
+        return res;
+      });
+      return cached || network;
+    })
+  );
+});
+
+// ─── Push notifications ───────────────────────────────────────────────────────
 self.addEventListener('push', (event) => {
   if (!event.data) return;
 
@@ -25,16 +102,17 @@ self.addEventListener('push', (event) => {
   };
 
   event.waitUntil(
-    self.registration.showNotification(title, options).then(function () {
-      return self.clients.matchAll({ includeUncontrolled: true, type: 'window' });
-    }).then(function (clients) {
-      clients.forEach(function (client) {
+    self.registration.showNotification(title, options).then(() =>
+      self.clients.matchAll({ includeUncontrolled: true, type: 'window' })
+    ).then((clients) => {
+      clients.forEach((client) => {
         client.postMessage({ type: 'PUSH_NOTIFICATION', notification: data });
       });
     })
   );
 });
 
+// ─── Notification click ───────────────────────────────────────────────────────
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   if (event.action === 'dismiss') return;
@@ -52,7 +130,7 @@ self.addEventListener('notificationclick', (event) => {
           }
         }
         return self.clients.openWindow(targetUrl);
-      }),
+      })
   );
 });
 

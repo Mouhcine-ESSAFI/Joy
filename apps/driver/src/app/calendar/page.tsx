@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { Clock, Users, MapPin, MessageCircle, Phone, CalendarDays, ChevronRight } from 'lucide-react';
+import { Clock, Users, MapPin, MessageCircle, CalendarDays, ChevronRight } from 'lucide-react';
 import type { Order } from '@/lib/types';
 
 function buildWhatsAppUrl(phone: string, customerName: string, tourDate: string | null, tourCode: string | null) {
@@ -181,7 +181,7 @@ export default function DriverCalendarPage() {
                   onSelect={(d) => { if (d) setDate(d); }}
                   onDayClick={handleDayClick}
                   showOutsideDays={false}
-                  className="w-full"
+                  className="w-full [--cell-size:1.75rem] p-2"
                   classNames={{ root: 'w-full' }}
                   modifiers={{ booked: datesWithOrders }}
                   modifiersClassNames={{
@@ -386,21 +386,16 @@ function TourCard({
         )}
 
         {order.customerPhone && (
-          <div
-            className="flex items-center gap-2 pt-1"
-            onClick={e => e.stopPropagation()}
-          >
-            <Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-            <span className="text-xs flex-1 text-muted-foreground truncate">{order.customerPhone}</span>
+          <div className="pt-1.5" onClick={e => e.stopPropagation()}>
             <a
               href={buildWhatsAppUrl(order.customerPhone, order.customerName, order.tourDate, order.tourCode)}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 bg-green-500 hover:bg-green-600 text-white text-xs font-medium px-2.5 py-1 rounded-full transition-colors shrink-0"
+              className="flex items-center justify-center gap-2 w-full bg-green-500 hover:bg-green-600 active:bg-green-700 text-white text-xs font-medium px-3 py-2 rounded-lg transition-colors"
               onClick={e => e.stopPropagation()}
             >
-              <MessageCircle className="h-3 w-3" />
-              WhatsApp
+              <MessageCircle className="h-3.5 w-3.5 shrink-0" />
+              {order.customerPhone}
             </a>
           </div>
         )}
