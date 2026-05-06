@@ -198,6 +198,7 @@ export class SyncService implements OnModuleInit {
 
       // Process and save orders
       let savedCount = 0;
+      const metafieldCache = new Map<string, any[]>();
       for (const shopifyOrder of allOrders) {
         try {
           const parsedOrder = this.shopifyParserService.parseShopifyOrderJSON(
@@ -209,6 +210,14 @@ export class SyncService implements OnModuleInit {
           for (const lineItem of parsedOrder.lineItems) {
             const key = `${parsedOrder.shopifyOrderId}-${lineItem.lineItemIndex}`;
             if (existingSet.has(key)) continue;
+
+            let productMetafields: any[] = [];
+            if (lineItem.productId) {
+              if (!metafieldCache.has(lineItem.productId)) {
+                metafieldCache.set(lineItem.productId, await this.fetchProductMetafields(store, lineItem.productId));
+              }
+              productMetafields = metafieldCache.get(lineItem.productId)!;
+            }
 
             const orderDto = {
               shopifyOrderId: parsedOrder.shopifyOrderId,
@@ -244,7 +253,7 @@ export class SyncService implements OnModuleInit {
               note: parsedOrder.note,
 
               lineItemProperties: { raw: lineItem.properties },
-              shopifyMetadata: { productType: lineItem.productType },
+              shopifyMetadata: { productType: lineItem.productType, metafields: productMetafields },
             };
 
             await this.ordersService.create(orderDto as any);
@@ -262,6 +271,23 @@ export class SyncService implements OnModuleInit {
     } catch (error: any) {
       this.logger.error(`❌ Error fetching orders: ${error.message}`);
       throw error;
+    }
+  }
+
+  private async fetchProductMetafields(store: any, productId: string): Promise<any[]> {
+    try {
+      const url = `https://${store.shopifyDomain}/admin/api/${store.apiVersion}/products/${productId}/metafields.json`;
+      const response = await fetch(url, {
+        headers: {
+          'X-Shopify-Access-Token': store.accessToken,
+          'Content-Type': 'application/json',
+        },
+      });
+      if (!response.ok) return [];
+      const data = await response.json();
+      return (data.metafields || []).map((m: any) => ({ key: m.key, value: m.value, namespace: m.namespace }));
+    } catch {
+      return [];
     }
   }
 }

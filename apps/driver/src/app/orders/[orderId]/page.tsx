@@ -23,21 +23,28 @@ function buildWhatsAppUrl(phone: string, customerName: string, tourDate: string 
   return `https://wa.me/${clean}?text=${msg}`;
 }
 
-function getProp(props: Record<string, any> | null | undefined, ...keys: string[]): string | null {
-  if (!props) return null;
-  // Shopify stores line item properties as { raw: [{name, value}] }
-  if (Array.isArray(props.raw)) {
+function getProp(
+  lineItemProps: Record<string, any> | null | undefined,
+  shopifyMeta: Record<string, any> | null | undefined,
+  ...keys: string[]
+): string | null {
+  // Search shopifyMetadata.metafields first (product metafields [{key, value}])
+  if (Array.isArray(shopifyMeta?.metafields)) {
     for (const key of keys) {
-      const found = (props.raw as Array<{ name: string; value: string }>).find(
-        (p) => p.name?.toLowerCase() === key.toLowerCase(),
+      const found = (shopifyMeta!.metafields as Array<{ key: string; value: string }>).find(
+        (m) => m.key?.toLowerCase() === key.toLowerCase(),
       );
       if (found?.value && String(found.value).trim()) return String(found.value).trim();
     }
   }
-  // Fallback: direct key lookup
-  for (const key of keys) {
-    const val = props[key] ?? props[key.toLowerCase()] ?? props[key.toUpperCase()];
-    if (val && String(val).trim()) return String(val).trim();
+  // Then search lineItemProperties.raw ([{name, value}])
+  if (Array.isArray(lineItemProps?.raw)) {
+    for (const key of keys) {
+      const found = (lineItemProps!.raw as Array<{ name: string; value: string }>).find(
+        (p) => p.name?.toLowerCase() === key.toLowerCase(),
+      );
+      if (found?.value && String(found.value).trim()) return String(found.value).trim();
+    }
   }
   return null;
 }
@@ -91,16 +98,9 @@ export default function DriverOrderDetailPage() {
   const totalSupplements = supplements.reduce((sum, s) => sum + Number(s.amount || 0), 0);
   const balanceDue = Number(order.lineItemPrice || 0) + totalSupplements - Number(order.depositAmount || 0);
 
-  // Shopify product metafield names: Duration, From, To
-<<<<<<< HEAD
   const duration = getProp(order.lineItemProperties, order.shopifyMetadata, 'Duration', 'duration');
   const departure = getProp(order.lineItemProperties, order.shopifyMetadata, 'From', 'from');
-  const arrival = getProp(order.lineItemProperties, order.shopifyMetadata, 'To', 'to_');
-=======
-  const duration = getProp(order.lineItemProperties, 'Duration');
-  const departure = getProp(order.lineItemProperties, 'From');
-  const arrival = getProp(order.lineItemProperties, 'To');
->>>>>>> parent of e92c5e806 (06-05)
+  const arrival = getProp(order.lineItemProperties, order.shopifyMetadata, 'to_', 'To', 'to');
 
   const campType = stripPrice(order.campType);
   const roomType = stripPrice(order.roomType);

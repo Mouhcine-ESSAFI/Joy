@@ -4,6 +4,7 @@ import { TourType } from '../orders/entities/order.entity';
 interface ParsedLineItem {
   shopifyLineItemId: string;
   lineItemIndex: number;
+  productId?: string;
   tourTitle: string;
   variantTitle: string;
   lineItemPrice: number;
@@ -84,6 +85,7 @@ export class ShopifyParserService {
       return {
         shopifyLineItemId: item.id?.toString() || `${shopifyOrder.id}-${index}`,
         lineItemIndex: index,
+        productId: item.product_id?.toString(),
         tourTitle: item.title || item.name,
         variantTitle: item.variant_title || '',
         lineItemPrice: parseFloat(item.price || '0'),

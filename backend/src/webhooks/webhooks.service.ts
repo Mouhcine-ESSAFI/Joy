@@ -58,7 +58,17 @@ export class WebhooksService {
       // Parse and create order
       const parsedOrder = this.parseShopifyOrderJSON(payload, store.internalName);
 
+      const metafieldCache = new Map<string, any[]>();
+
       for (const lineItem of parsedOrder.lineItems) {
+        let productMetafields: any[] = [];
+        if (lineItem.productId) {
+          if (!metafieldCache.has(lineItem.productId)) {
+            metafieldCache.set(lineItem.productId, await this.fetchProductMetafields(store, lineItem.productId));
+          }
+          productMetafields = metafieldCache.get(lineItem.productId)!;
+        }
+
         const orderDto = {
           shopifyOrderId: parsedOrder.shopifyOrderId,
           shopifyOrderNumber: parsedOrder.shopifyOrderNumber,
@@ -94,7 +104,7 @@ export class WebhooksService {
           note: parsedOrder.note,
 
           lineItemProperties: { raw: lineItem.properties },
-          shopifyMetadata: { productType: lineItem.productType },
+          shopifyMetadata: { productType: lineItem.productType, metafields: productMetafields },
         };
 
         const createdOrder = await this.ordersService.create(orderDto as any);
@@ -173,6 +183,8 @@ export class WebhooksService {
       // Parse updated order
       const parsedOrder = this.parseShopifyOrderJSON(payload, store.internalName);
 
+      const metafieldCache = new Map<string, any[]>();
+
       // Update each existing order
       for (const existingOrder of existingOrders) {
         // Find corresponding line item
@@ -183,6 +195,14 @@ export class WebhooksService {
         if (!lineItem) {
           this.logger.warn(`⚠️ Line item ${existingOrder.shopifyLineItemId} not found in update`);
           continue;
+        }
+
+        let productMetafields: any[] = [];
+        if (lineItem.productId) {
+          if (!metafieldCache.has(lineItem.productId)) {
+            metafieldCache.set(lineItem.productId, await this.fetchProductMetafields(store, lineItem.productId));
+          }
+          productMetafields = metafieldCache.get(lineItem.productId)!;
         }
 
         const updates: any = {
@@ -209,7 +229,7 @@ export class WebhooksService {
           tags: parsedOrder.tags,
           note: parsedOrder.note,
           lineItemProperties: { raw: lineItem.properties },
-          shopifyMetadata: { productType: lineItem.productType },
+          shopifyMetadata: { productType: lineItem.productType, metafields: productMetafields },
         };
 
         // ⭐ CRITICAL: Only auto-update status if currently "New"
@@ -341,6 +361,7 @@ export class WebhooksService {
       return this.parseLineItem({
         shopifyLineItemId: item.id.toString(),
         lineItemIndex: index,
+        productId: item.product_id?.toString(),
         tourTitle: item.title,
         variantTitle: item.variant_title || '',
         lineItemPrice: parseFloat(item.price),
@@ -379,6 +400,7 @@ export class WebhooksService {
     return {
       shopifyLineItemId: data.shopifyLineItemId,
       lineItemIndex: data.lineItemIndex,
+      productId: data.productId,
       tourTitle: data.tourTitle,
       variantTitle: data.variantTitle,
       lineItemPrice: data.lineItemPrice,
@@ -532,6 +554,23 @@ export class WebhooksService {
     if (lower.includes('private') || lower.includes('privado')) return 'Private';
     if (lower.includes('shared') || lower.includes('compartido') || lower.includes('grupo')) return 'Shared';
     return undefined;
+  }
+
+  private async fetchProductMetafields(store: any, productId: string): Promise<any[]> {
+    try {
+      const url = `https://${store.shopifyDomain}/admin/api/${store.apiVersion}/products/${productId}/metafields.json`;
+      const response = await fetch(url, {
+        headers: {
+          'X-Shopify-Access-Token': store.accessToken,
+          'Content-Type': 'application/json',
+        },
+      });
+      if (!response.ok) return [];
+      const data = await response.json();
+      return (data.metafields || []).map((m: any) => ({ key: m.key, value: m.value, namespace: m.namespace }));
+    } catch {
+      return [];
+    }
   }
 
   private notifyOrdersUpdated(storeId: string): void {
