@@ -2,12 +2,13 @@
 
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { Loader2, Truck, CalendarDays, LogOut } from 'lucide-react';
+import { Loader2, Truck, CalendarDays, LogOut, Sun, Moon, Download } from 'lucide-react';
 import { useAuthContext } from '@/context/AuthContext';
+import { useTheme } from 'next-themes';
+import { useInstallPrompt } from '@/hooks/use-install-prompt';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { NotificationCenter } from '@/components/NotificationCenter';
-import { InstallAppButton } from '@/components/InstallAppButton';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
@@ -28,6 +29,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { isAuthenticated, loading, user, logout } = useAuthContext();
+  const { theme, setTheme } = useTheme();
+  const { canInstall, install } = useInstallPrompt();
 
   useEffect(() => {
     if (loading) return;
@@ -52,6 +55,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     router.push('/login');
   };
 
+  const isDark = theme === 'dark';
+
   return (
     <div className="min-h-screen flex flex-col bg-muted/30">
       {/* Top nav */}
@@ -66,7 +71,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
         {/* Right side actions */}
         <div className="flex items-center gap-2">
-          <InstallAppButton />
           <NotificationCenter />
 
           {/* User avatar dropdown */}
@@ -80,7 +84,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuContent align="end" className="w-52">
               <DropdownMenuLabel>
                 <div className="flex flex-col space-y-0.5">
                   <p className="text-sm font-medium leading-none">{user?.name || 'Driver'}</p>
@@ -89,6 +93,24 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   </span>
                 </div>
               </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+
+              {/* Theme toggle */}
+              <DropdownMenuItem onClick={() => setTheme(isDark ? 'light' : 'dark')}>
+                {isDark
+                  ? <Sun className="h-4 w-4 mr-2" />
+                  : <Moon className="h-4 w-4 mr-2" />}
+                {isDark ? 'Light mode' : 'Dark mode'}
+              </DropdownMenuItem>
+
+              {/* Install app — only shown when browser supports it */}
+              {canInstall && (
+                <DropdownMenuItem onClick={install}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Install App
+                </DropdownMenuItem>
+              )}
+
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
                 <LogOut className="h-4 w-4 mr-2" />

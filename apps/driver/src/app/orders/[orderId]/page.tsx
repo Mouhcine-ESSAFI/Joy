@@ -23,21 +23,31 @@ function buildWhatsAppUrl(phone: string, customerName: string, tourDate: string 
   return `https://wa.me/${clean}?text=${msg}`;
 }
 
-function getProp(props: Record<string, any> | null | undefined, ...keys: string[]): string | null {
-  if (!props) return null;
-  // Shopify stores line item properties as { raw: [{name, value}] }
-  if (Array.isArray(props.raw)) {
+// Search for a metafield value across multiple sources:
+// 1. shopifyMetadata.metafields  → product metafields fetched from Shopify API [{key, value, namespace}]
+// 2. lineItemProperties.raw      → line item checkout properties [{name, value}]
+function getProp(
+  lineItemProps: Record<string, any> | null | undefined,
+  shopifyMeta: Record<string, any> | null | undefined,
+  ...keys: string[]
+): string | null {
+  // Product metafields (stored under shopifyMetadata.metafields)
+  if (Array.isArray(shopifyMeta?.metafields)) {
     for (const key of keys) {
-      const found = (props.raw as Array<{ name: string; value: string }>).find(
-        (p) => p.name?.toLowerCase() === key.toLowerCase(),
+      const found = (shopifyMeta!.metafields as Array<{ key: string; value: string }>).find(
+        (m) => m.key?.toLowerCase() === key.toLowerCase(),
       );
       if (found?.value && String(found.value).trim()) return String(found.value).trim();
     }
   }
-  // Fallback: direct key lookup
-  for (const key of keys) {
-    const val = props[key] ?? props[key.toLowerCase()] ?? props[key.toUpperCase()];
-    if (val && String(val).trim()) return String(val).trim();
+  // Line item checkout properties (stored under lineItemProperties.raw)
+  if (Array.isArray(lineItemProps?.raw)) {
+    for (const key of keys) {
+      const found = (lineItemProps!.raw as Array<{ name: string; value: string }>).find(
+        (p) => p.name?.toLowerCase() === key.toLowerCase(),
+      );
+      if (found?.value && String(found.value).trim()) return String(found.value).trim();
+    }
   }
   return null;
 }
@@ -92,9 +102,9 @@ export default function DriverOrderDetailPage() {
   const balanceDue = Number(order.lineItemPrice || 0) + totalSupplements - Number(order.depositAmount || 0);
 
   // Shopify product metafield names: Duration, From, To
-  const duration = getProp(order.lineItemProperties, 'Duration');
-  const departure = getProp(order.lineItemProperties, 'From');
-  const arrival = getProp(order.lineItemProperties, 'To');
+  const duration = getProp(order.lineItemProperties, order.shopifyMetadata, 'Duration', 'duration');
+  const departure = getProp(order.lineItemProperties, order.shopifyMetadata, 'From', 'from');
+  const arrival = getProp(order.lineItemProperties, order.shopifyMetadata, 'To', 'to');
 
   const campType = stripPrice(order.campType);
   const roomType = stripPrice(order.roomType);
