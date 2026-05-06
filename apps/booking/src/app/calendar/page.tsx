@@ -1,11 +1,11 @@
 'use client';
 
-import React from 'react';
 import type { Order } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useMemo, useState, useEffect } from 'react';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { format } from 'date-fns';
 import { useOrders } from '@/lib/hooks';
 import AppLayout from '@/components/layout/AppLayout';
@@ -16,8 +16,9 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function CalendarPage() {
-  const { orders, loading: isLoading } = useOrders({ pageSize: 1000 }); // Fetch up to 1000 orders for calendar view
+  const { orders, loading: isLoading } = useOrders({ pageSize: 1000 });
   const router = useRouter();
+  const isMobile = useIsMobile();
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [isTourListOpen, setTourListOpen] = useState(false);
 
@@ -205,16 +206,19 @@ export default function CalendarPage() {
           </CardHeader>
           <CardContent>
             {isLoading ? <Skeleton className="h-[270px] w-full" /> : (
-                <Calendar
-                mode="single"
-                selected={date}
-                onSelect={handleDateSelect}
-                className="rounded-md border p-2 w-full overflow-hidden"
-                style={{ '--cell-size': '1.75rem' } as React.CSSProperties}
-                showOutsideDays={false}
-                modifiers={{ booked: datesWithOrders }}
-                modifiersStyles={{ booked: { backgroundColor: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))', fontWeight: 'bold', borderRadius: '2px', margin: '2px' }}}
-                />
+                <div className="overflow-x-hidden w-full">
+                  <Calendar
+                    mode="single"
+                    selected={date}
+                    onSelect={handleDateSelect}
+                    className="w-full"
+                    classNames={{ root: 'w-full', months: isMobile ? 'flex flex-col gap-4' : 'flex flex-row gap-4' }}
+                    showOutsideDays={false}
+                    numberOfMonths={isMobile ? 1 : 2}
+                    modifiers={{ booked: datesWithOrders }}
+                    modifiersStyles={{ booked: { backgroundColor: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))', fontWeight: 'bold', borderRadius: '2px' }}}
+                  />
+                </div>
             )}
             <div className="mt-4 space-y-2 pt-4 border-t">
               <div className="flex items-center gap-2 text-sm"><div className="h-3 w-3 rounded-full bg-primary" /><span className="text-muted-foreground">Has scheduled tours</span></div>
