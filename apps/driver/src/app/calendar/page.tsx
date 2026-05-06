@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { format, addDays, isBefore, startOfDay } from 'date-fns';
 import { useOrders } from '@/lib/hooks';
 import AppLayout from '@/components/layout/AppLayout';
@@ -181,7 +181,8 @@ export default function DriverCalendarPage() {
                   onSelect={(d) => { if (d) setDate(d); }}
                   onDayClick={handleDayClick}
                   showOutsideDays={false}
-                  className="w-full [--cell-size:1.75rem] p-2"
+                  className="w-full p-2"
+                  style={{ '--cell-size': '1.75rem' } as React.CSSProperties}
                   classNames={{ root: 'w-full' }}
                   modifiers={{ booked: datesWithOrders }}
                   modifiersClassNames={{

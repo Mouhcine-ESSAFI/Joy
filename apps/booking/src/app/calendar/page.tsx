@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import type { Order } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -208,9 +209,9 @@ export default function CalendarPage() {
                 mode="single"
                 selected={date}
                 onSelect={handleDateSelect}
-                className="rounded-md border p-2 sm:p-4 w-full"
-                showOutsideDays={true}
-                numberOfMonths={2}
+                className="rounded-md border p-2 w-full overflow-hidden"
+                style={{ '--cell-size': '1.75rem' } as React.CSSProperties}
+                showOutsideDays={false}
                 modifiers={{ booked: datesWithOrders }}
                 modifiersStyles={{ booked: { backgroundColor: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))', fontWeight: 'bold', borderRadius: '2px', margin: '2px' }}}
                 />
