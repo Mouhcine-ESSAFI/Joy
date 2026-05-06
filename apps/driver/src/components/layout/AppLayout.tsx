@@ -2,14 +2,20 @@
 
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+<<<<<<< HEAD
 import { Loader2, Truck, CalendarDays, LogOut, Sun, Moon, Laptop, Download } from 'lucide-react';
 import { useAuthContext } from '@/context/AuthContext';
 import { useTheme } from 'next-themes';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { useInstallPrompt } from '@/hooks/use-install-prompt';
+=======
+import { Loader2, Truck, CalendarDays, LogOut } from 'lucide-react';
+import { useAuthContext } from '@/context/AuthContext';
+>>>>>>> parent of e92c5e806 (06-05)
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { NotificationCenter } from '@/components/NotificationCenter';
+import { InstallAppButton } from '@/components/InstallAppButton';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
@@ -34,9 +40,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { isAuthenticated, loading, user, logout } = useAuthContext();
+<<<<<<< HEAD
   const { setTheme } = useTheme();
   const [, rawSetTheme] = useLocalStorage('joy-theme', 'system');
   const { canInstall, install } = useInstallPrompt();
+=======
+>>>>>>> parent of e92c5e806 (06-05)
 
   useEffect(() => {
     if (loading) return;
@@ -61,11 +70,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     router.push('/login');
   };
 
+<<<<<<< HEAD
   const applyTheme = (t: string) => {
     setTheme(t);
     rawSetTheme(t as any);
   };
 
+=======
+>>>>>>> parent of e92c5e806 (06-05)
   return (
     <div className="min-h-screen flex flex-col bg-muted/30">
       {/* Top nav */}
@@ -78,6 +90,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
 
         <div className="flex items-center gap-2">
+          <InstallAppButton />
           <NotificationCenter />
 
           <DropdownMenu>
@@ -90,7 +103,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-52">
+            <DropdownMenuContent align="end" className="w-48">
               <DropdownMenuLabel>
                 <div className="flex flex-col space-y-0.5">
                   <p className="text-sm font-medium leading-none">{user?.name || 'Driver'}</p>
@@ -100,6 +113,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
+<<<<<<< HEAD
 
               {/* Theme submenu — same pattern as booking app */}
               <DropdownMenuSub>
@@ -135,6 +149,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </DropdownMenuItem>
 
               <DropdownMenuSeparator />
+=======
+>>>>>>> parent of e92c5e806 (06-05)
               <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
                 <LogOut className="h-4 w-4 mr-2" />
                 Sign out

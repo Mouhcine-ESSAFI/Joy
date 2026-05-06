@@ -57,14 +57,8 @@ export class WebhooksService {
 
       // Parse and create order
       const parsedOrder = this.parseShopifyOrderJSON(payload, store.internalName);
-      const metafieldCache = new Map<string, any[]>();
 
       for (const lineItem of parsedOrder.lineItems) {
-        // Fetch product metafields (Duration, From, To, etc.) — cached per product
-        const productMetafields = lineItem.productId
-          ? await this.fetchProductMetafields(store.shopifyDomain, store.accessToken, store.apiVersion, lineItem.productId, metafieldCache)
-          : [];
-
         const orderDto = {
           shopifyOrderId: parsedOrder.shopifyOrderId,
           shopifyOrderNumber: parsedOrder.shopifyOrderNumber,
@@ -100,7 +94,7 @@ export class WebhooksService {
           note: parsedOrder.note,
 
           lineItemProperties: { raw: lineItem.properties },
-          shopifyMetadata: { productType: lineItem.productType, metafields: productMetafields },
+          shopifyMetadata: { productType: lineItem.productType },
         };
 
         const createdOrder = await this.ordersService.create(orderDto as any);
@@ -354,7 +348,6 @@ export class WebhooksService {
         quantity: item.quantity,
         properties: propertiesText,
         productType: item.product_type || '',
-        productId: item.product_id?.toString() || null,
       });
     });
 
@@ -393,8 +386,7 @@ export class WebhooksService {
       quantity: data.quantity,
       properties: data.properties,
       productType: data.productType,
-      productId: data.productId || null,
-
+      
       tourDate: parsedData.tourDate,
       tourHour: parsedData.tourHour,
       tourType: this.mapTourType(parsedData.tourType),
@@ -540,34 +532,6 @@ export class WebhooksService {
     if (lower.includes('private') || lower.includes('privado')) return 'Private';
     if (lower.includes('shared') || lower.includes('compartido') || lower.includes('grupo')) return 'Shared';
     return undefined;
-  }
-
-  private async fetchProductMetafields(
-    shopifyDomain: string,
-    accessToken: string,
-    apiVersion: string,
-    productId: string,
-    cache: Map<string, any[]>,
-  ): Promise<any[]> {
-    if (cache.has(productId)) return cache.get(productId)!;
-    try {
-      const url = `https://${shopifyDomain}/admin/api/${apiVersion}/products/${productId}/metafields.json`;
-      const res = await fetch(url, { headers: { 'X-Shopify-Access-Token': accessToken } });
-      if (!res.ok) { cache.set(productId, []); return []; }
-      const data: any = await res.json();
-      const metafields = (data.metafields || []).map((m: any) => ({
-        key: m.key,
-        value: m.value,
-        namespace: m.namespace,
-      }));
-      cache.set(productId, metafields);
-      this.logger.log(`Fetched ${metafields.length} metafields for product ${productId}`);
-      return metafields;
-    } catch (err: any) {
-      this.logger.warn(`Failed to fetch metafields for product ${productId}: ${err.message}`);
-      cache.set(productId, []);
-      return [];
-    }
   }
 
   private notifyOrdersUpdated(storeId: string): void {

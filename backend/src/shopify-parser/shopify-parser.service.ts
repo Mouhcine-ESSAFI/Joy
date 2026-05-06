@@ -11,8 +11,7 @@ interface ParsedLineItem {
   quantity: number;
   properties: string;
   productType: string;
-  productId?: string;
-
+  
   // Parsed fields
   tourDate?: Date;
   tourHour?: string;
@@ -92,7 +91,6 @@ export class ShopifyParserService {
         quantity: item.quantity || 1,
         properties: propertiesText,
         productType: item.product_type || '',
-        productId: item.product_id?.toString() || null,
         tourDate: parsedProperties.tourDate,
         tourHour: parsedProperties.tourHour,
         tourType: this.mapTourType(parsedProperties.tourType || item.product_type),
