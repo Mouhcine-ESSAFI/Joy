@@ -832,52 +832,45 @@ export default function OrdersClient() {
               </TabsList>
           </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-2 mb-4">
-                <div className="relative col-span-1 md:col-span-2 lg:col-span-3 xl:col-span-2">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                    <Input
-                        placeholder="Search by customer, email, order..."
-                        value={search}
-                        onChange={(e) => {
-                        setSearch(e.target.value);
-                        setPage(1);
-                        }}
-                        className="pl-10"
-                    />
-                </div>
+            {/* Row 1 — search full width */}
+            <div className="relative mb-2">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <Input
+                placeholder="Search by customer, email, order..."
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                className="pl-10"
+              />
+            </div>
 
-                <DatePickerWithRange
-                    date={filters.dateRange}
-                    onDateChange={(range) => {
-                        setFilters({ ...filters, dateRange: range });
-                        setPage(1);
-                    }}
-                />
-                
-                <Select value={filters.tourType} onValueChange={(value) => { setFilters({ ...filters, tourType: value }); setPage(1); }}>
-                <SelectTrigger><SelectValue placeholder="Tour Type" /></SelectTrigger>
+            {/* Row 2 — filters */}
+            <div className="flex flex-wrap gap-2 mb-4">
+              <DatePickerWithRange
+                date={filters.dateRange}
+                onDateChange={(range) => { setFilters({ ...filters, dateRange: range }); setPage(1); }}
+              />
+              <Select value={filters.tourType} onValueChange={(value) => { setFilters({ ...filters, tourType: value }); setPage(1); }}>
+                <SelectTrigger className="w-[130px]"><SelectValue placeholder="Tour Type" /></SelectTrigger>
                 <SelectContent>
-                    <SelectItem value="all">All Types</SelectItem>
-                    <SelectItem value="Shared">Shared</SelectItem>
-                    <SelectItem value="Private">Private</SelectItem>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="Shared">Shared</SelectItem>
+                  <SelectItem value="Private">Private</SelectItem>
                 </SelectContent>
-                </Select>
-
-                <Select value={filters.transport} onValueChange={(value) => { setFilters({ ...filters, transport: value }); setPage(1); }}>
-                <SelectTrigger><SelectValue placeholder="Transport" /></SelectTrigger>
+              </Select>
+              <Select value={filters.transport} onValueChange={(value) => { setFilters({ ...filters, transport: value }); setPage(1); }}>
+                <SelectTrigger className="w-[140px]"><SelectValue placeholder="Transport" /></SelectTrigger>
                 <SelectContent>
-                    <SelectItem value="all">All Transport</SelectItem>
-                    {activeTransportTypes.map((t) => ( <SelectItem key={t.id} value={t.code}>{t.code}</SelectItem> ))}
+                  <SelectItem value="all">All Transport</SelectItem>
+                  {activeTransportTypes.map((t) => (<SelectItem key={t.id} value={t.code}>{t.code}</SelectItem>))}
                 </SelectContent>
-                </Select>
-                
-                <Select value={filters.storeId} onValueChange={(value) => { setFilters({ ...filters, storeId: value }); setPage(1); }}>
-                <SelectTrigger className="xl:col-start-4"><SelectValue placeholder="All Stores" /></SelectTrigger>
+              </Select>
+              <Select value={filters.storeId} onValueChange={(value) => { setFilters({ ...filters, storeId: value }); setPage(1); }}>
+                <SelectTrigger className="w-[130px]"><SelectValue placeholder="All Stores" /></SelectTrigger>
                 <SelectContent>
-                    <SelectItem value="all">All Stores</SelectItem>
-                    {(shopifyStores || []).map((store) => ( <SelectItem key={store.id} value={(store as any).internalName}>{(store as any).internalName}</SelectItem> ))}
+                  <SelectItem value="all">All Stores</SelectItem>
+                  {(shopifyStores || []).map((store) => (<SelectItem key={store.id} value={(store as any).internalName}>{(store as any).internalName}</SelectItem>))}
                 </SelectContent>
-                </Select>
+              </Select>
             </div>
 
 

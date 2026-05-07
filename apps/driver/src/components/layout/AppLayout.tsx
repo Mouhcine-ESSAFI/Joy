@@ -2,11 +2,10 @@
 
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { Loader2, Truck, CalendarDays, LogOut, Sun, Moon, Laptop, Download } from 'lucide-react';
+import { Loader2, Truck, CalendarDays, LogOut, Sun, Moon, Laptop } from 'lucide-react';
 import { useAuthContext } from '@/context/AuthContext';
 import { useTheme } from 'next-themes';
 import { useLocalStorage } from '@/hooks/use-local-storage';
-import { useInstallPrompt } from '@/hooks/use-install-prompt';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { NotificationCenter } from '@/components/NotificationCenter';
@@ -37,7 +36,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading, user, logout } = useAuthContext();
   const { setTheme } = useTheme();
   const [, rawSetTheme] = useLocalStorage('joy-theme', 'system');
-  const { canInstall, install } = useInstallPrompt();
 
   useEffect(() => {
     if (loading) return;
@@ -69,7 +67,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen flex flex-col bg-muted/30">
-      {/* Top nav */}
       <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background px-4 sm:px-6">
         <div className="flex items-center gap-2 mr-auto">
           <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center">
@@ -103,7 +100,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
 
-              {/* Theme submenu */}
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger>
                   <Sun className="mr-2 h-4 w-4" />
@@ -126,15 +122,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   </DropdownMenuSubContent>
                 </DropdownMenuPortal>
               </DropdownMenuSub>
-
-              {/* Install App — always visible; greyed out when not installable */}
-              <DropdownMenuItem
-                onClick={() => { if (canInstall) install(); }}
-                className={!canInstall ? 'opacity-40 cursor-default' : ''}
-              >
-                <Download className="mr-2 h-4 w-4" />
-                <span>Install App</span>
-              </DropdownMenuItem>
 
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">

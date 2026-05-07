@@ -56,7 +56,9 @@ export default function RootLayout({
       <body className="font-body antialiased" suppressHydrationWarning={true}>
         <ThemeProvider
             attribute="class"
-            defaultTheme="light"
+            defaultTheme="system"
+            enableSystem
+            storageKey="joy-theme"
             disableTransitionOnChange>
             <AuthProvider>
               {children}
