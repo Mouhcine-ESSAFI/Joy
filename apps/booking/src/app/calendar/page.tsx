@@ -206,7 +206,7 @@ export default function CalendarPage() {
           </CardHeader>
           <CardContent>
             {isLoading ? <Skeleton className="h-[270px] w-full" /> : (
-                <div className="overflow-x-hidden w-full">
+                <div className="w-full">
                   <Calendar
                     mode="single"
                     selected={date}
