@@ -390,7 +390,7 @@ export default function OrdersClient() {
   };
 
   // statuses WITHOUT New/Updated (backend auto)
-  const selectableStatuses: Order['status'][] = ['Validate', 'Completed', 'Canceled'];
+  const selectableStatuses: OrderStatus[] = ['Completed', 'Canceled'] as OrderStatus[];
 
   const statusConfig: Record<Order['status'], string> = {
     New: 'bg-blue-500',
@@ -821,19 +821,18 @@ export default function OrdersClient() {
         </CardHeader>
 
         <CardContent>
-          <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-                <TabsList className="mb-4">
-                  <TabsTrigger value="all">All</TabsTrigger>
-                  <TabsTrigger value="New">New</TabsTrigger>
-                  <TabsTrigger value="Updated">Updated</TabsTrigger>
-                  <TabsTrigger value="Validate">Validate</TabsTrigger>
-                  <TabsTrigger value="Completed">Completed</TabsTrigger>
-                  <TabsTrigger value="Canceled">Canceled</TabsTrigger>
+          {/* Row 1 — status tabs + search */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
+            <div className="overflow-x-auto shrink-0">
+              <TabsList>
+                <TabsTrigger value="all">All</TabsTrigger>
+                <TabsTrigger value="New">New</TabsTrigger>
+                <TabsTrigger value="Updated">Updated</TabsTrigger>
+                <TabsTrigger value="Completed">Completed</TabsTrigger>
+                <TabsTrigger value="Canceled">Canceled</TabsTrigger>
               </TabsList>
-          </div>
-
-            {/* Row 1 — search full width */}
-            <div className="relative mb-2">
+            </div>
+            <div className="relative flex-1 min-w-0">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
               <Input
                 placeholder="Search by customer, email, order..."
@@ -842,36 +841,37 @@ export default function OrdersClient() {
                 className="pl-10"
               />
             </div>
+          </div>
 
-            {/* Row 2 — filters */}
-            <div className="flex flex-wrap gap-2 mb-4">
-              <DatePickerWithRange
-                date={filters.dateRange}
-                onDateChange={(range) => { setFilters({ ...filters, dateRange: range }); setPage(1); }}
-              />
-              <Select value={filters.tourType} onValueChange={(value) => { setFilters({ ...filters, tourType: value }); setPage(1); }}>
-                <SelectTrigger className="w-[130px]"><SelectValue placeholder="Tour Type" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="Shared">Shared</SelectItem>
-                  <SelectItem value="Private">Private</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={filters.transport} onValueChange={(value) => { setFilters({ ...filters, transport: value }); setPage(1); }}>
-                <SelectTrigger className="w-[140px]"><SelectValue placeholder="Transport" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Transport</SelectItem>
-                  {activeTransportTypes.map((t) => (<SelectItem key={t.id} value={t.code}>{t.code}</SelectItem>))}
-                </SelectContent>
-              </Select>
-              <Select value={filters.storeId} onValueChange={(value) => { setFilters({ ...filters, storeId: value }); setPage(1); }}>
-                <SelectTrigger className="w-[130px]"><SelectValue placeholder="All Stores" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Stores</SelectItem>
-                  {(shopifyStores || []).map((store) => (<SelectItem key={store.id} value={(store as any).internalName}>{(store as any).internalName}</SelectItem>))}
-                </SelectContent>
-              </Select>
-            </div>
+          {/* Row 2 — other filters */}
+          <div className="flex flex-wrap gap-2 mb-4">
+            <DatePickerWithRange
+              date={filters.dateRange}
+              onDateChange={(range) => { setFilters({ ...filters, dateRange: range }); setPage(1); }}
+            />
+            <Select value={filters.tourType} onValueChange={(value) => { setFilters({ ...filters, tourType: value }); setPage(1); }}>
+              <SelectTrigger className="w-[130px]"><SelectValue placeholder="Tour Type" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="Shared">Shared</SelectItem>
+                <SelectItem value="Private">Private</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={filters.transport} onValueChange={(value) => { setFilters({ ...filters, transport: value }); setPage(1); }}>
+              <SelectTrigger className="w-[140px]"><SelectValue placeholder="Transport" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Transport</SelectItem>
+                {activeTransportTypes.map((t) => (<SelectItem key={t.id} value={t.code}>{t.code}</SelectItem>))}
+              </SelectContent>
+            </Select>
+            <Select value={filters.storeId} onValueChange={(value) => { setFilters({ ...filters, storeId: value }); setPage(1); }}>
+              <SelectTrigger className="w-[130px]"><SelectValue placeholder="All Stores" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Stores</SelectItem>
+                {(shopifyStores || []).map((store) => (<SelectItem key={store.id} value={(store as any).internalName}>{(store as any).internalName}</SelectItem>))}
+              </SelectContent>
+            </Select>
+          </div>
 
 
           <TabsContent value={statusTab}>

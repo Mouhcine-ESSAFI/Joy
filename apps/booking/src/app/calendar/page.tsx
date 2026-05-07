@@ -212,11 +212,11 @@ export default function CalendarPage() {
                     selected={date}
                     onSelect={handleDateSelect}
                     className="w-full"
-                    classNames={{ root: 'w-full', months: isMobile ? 'flex flex-col gap-4' : 'flex flex-row gap-4' }}
+                    classNames={{ root: 'w-full' }}
                     showOutsideDays={false}
                     numberOfMonths={isMobile ? 1 : 2}
                     modifiers={{ booked: datesWithOrders }}
-                    modifiersStyles={{ booked: { backgroundColor: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))', fontWeight: 'bold', borderRadius: '2px' }}}
+                    modifiersClassNames={{ booked: 'bg-primary text-primary-foreground font-bold rounded-xl' }}
                   />
                 </div>
             )}

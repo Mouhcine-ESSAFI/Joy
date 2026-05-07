@@ -71,9 +71,6 @@ export function BulkActionsBar({
             <SelectContent>
               {bulkField === 'status' && (
                 <>
-                  {/* <SelectItem value="New">New</SelectItem>
-                  <SelectItem value="Updated">Updated</SelectItem> */}
-                  <SelectItem value="Validate">Validate</SelectItem>
                   <SelectItem value="Completed">Completed</SelectItem>
                   <SelectItem value="Canceled">Canceled</SelectItem>
                 </>

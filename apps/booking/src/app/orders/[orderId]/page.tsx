@@ -240,7 +240,7 @@ export default function OrderDetailsPage() {
     }
   }
 
-  const statuses: StatusValue[] = ['New', 'Updated', 'Validate', 'Completed', 'Canceled'];
+  const statuses: StatusValue[] = ['New', 'Updated', 'Completed', 'Canceled'];
 
   const statusConfig: Record<StatusValue, string> = {
     New: 'bg-primary',
