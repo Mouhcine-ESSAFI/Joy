@@ -91,6 +91,9 @@ export class Order {
   @Column({ nullable: true })
   customerPhone: string;
 
+  @Column({ nullable: true })
+  billingPhone: string;
+
   @Column({ name: 'shopify_customer_id', nullable: true })
   shopifyCustomerId?: string;
 

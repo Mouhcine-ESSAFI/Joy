@@ -214,7 +214,7 @@ export default function CalendarPage() {
                     className="w-full"
                     classNames={{ root: 'w-full' }}
                     showOutsideDays={false}
-                    numberOfMonths={isMobile ? 1 : 2}
+                    numberOfMonths={2}
                     modifiers={{ booked: datesWithOrders }}
                     modifiersClassNames={{ booked: 'bg-primary text-primary-foreground font-bold rounded-xl' }}
                   />

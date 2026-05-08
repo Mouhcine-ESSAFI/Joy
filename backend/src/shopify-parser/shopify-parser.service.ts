@@ -29,6 +29,7 @@ interface ParsedOrder {
   customerName: string;
   customerEmail: string;
   customerPhone?: string;
+  billingPhone?: string;
   tags: string[];
   note?: string;
   
@@ -60,7 +61,8 @@ export class ShopifyParserService {
 
     const customerName = billing.name || shipping.name || `${customer.first_name || ''} ${customer.last_name || ''}`.trim() || 'Unknown';
     const customerEmail = shopifyOrder.email || customer.email || shopifyOrder.contact_email;
-    const customerPhone = billing.phone || customer.phone || shipping.phone;
+    const billingPhone = billing.phone || shipping.phone || null;
+    const customerPhone = billingPhone || customer.phone;
 
     // Extract payment info
     const subtotal = parseFloat(shopifyOrder.subtotal_price || '0');
@@ -109,6 +111,7 @@ export class ShopifyParserService {
       customerName,
       customerEmail,
       customerPhone,
+      billingPhone,
       tags,
       note: shopifyOrder.note,
       shopifyTotalAmount: deposit,

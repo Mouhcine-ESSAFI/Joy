@@ -120,6 +120,7 @@ export interface Order {
   customerName: string;
   customerEmail: string;
   customerPhone: string | null;
+  billingPhone: string | null;
   customerAvatar?: string; // Frontend-only field from mock data
   
   // Tour Details

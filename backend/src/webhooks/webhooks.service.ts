@@ -81,6 +81,7 @@ export class WebhooksService {
           customerName: parsedOrder.customerName,
           customerEmail: parsedOrder.customerEmail,
           customerPhone: parsedOrder.customerPhone,
+          billingPhone: parsedOrder.billingPhone,
 
           tourDate: lineItem.tourDate ? lineItem.tourDate.toISOString().split('T')[0] : null,
           tourHour: lineItem.tourHour,
@@ -211,6 +212,7 @@ export class WebhooksService {
           customerName: parsedOrder.customerName,
           customerEmail: parsedOrder.customerEmail,
           customerPhone: parsedOrder.customerPhone,
+          billingPhone: parsedOrder.billingPhone,
           tourDate: lineItem.tourDate ? lineItem.tourDate.toISOString().split('T')[0] : null,
           tourHour: lineItem.tourHour,
           pax: lineItem.pax || 1,

@@ -131,12 +131,12 @@ export default function DriverOrderDetailPage() {
               <Users className="h-4 w-4 text-muted-foreground shrink-0" />
               <span className="font-medium">{order.customerName}</span>
             </div>
-            {order.customerPhone && (
+            {(order.billingPhone || order.customerPhone) && (
               <div className="flex items-center gap-3">
                 <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
-                <span className="flex-1 text-sm">{order.customerPhone}</span>
+                <span className="flex-1 text-sm">{order.billingPhone || order.customerPhone}</span>
                 <a
-                  href={buildWhatsAppUrl(order.customerPhone, order.customerName, order.tourDate)}
+                  href={buildWhatsAppUrl((order.billingPhone || order.customerPhone) ?? '', order.customerName, order.tourDate)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-medium px-3 py-1.5 rounded-full transition-colors shrink-0"

@@ -68,6 +68,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Separator } from '@/components/ui/separator';
 
 const formatCurrency = (amount: string | number) =>
   new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(Number(amount) || 0);
@@ -98,40 +105,24 @@ function SortHeader({ column, label }: { column: any; label: string }) {
   );
 }
 
-const CustomerCard = ({ customer, onViewOrders }: { customer: Customer; onViewOrders: (email: string) => void }) => (
-  <Card className="hover:shadow-md transition-shadow">
+const CustomerCard = ({ customer, onClick }: { customer: Customer; onClick: () => void }) => (
+  <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={onClick}>
     <CardHeader className="pb-3">
-      <div className="flex justify-between items-start gap-3">
-        <div className="flex items-center gap-3">
-          <Avatar className="h-10 w-10 shrink-0">
-            <AvatarFallback className="bg-primary/10 text-primary font-semibold text-sm">
-              {getInitials(customer.firstName, customer.lastName)}
-            </AvatarFallback>
-          </Avatar>
-          <div className="grid gap-0.5 min-w-0">
-            <CardTitle className="text-base truncate">
-              {customer.firstName} {customer.lastName}
-            </CardTitle>
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-              <Mail className="h-3 w-3 shrink-0" />
-              <span className="truncate">{customer.email}</span>
-            </div>
+      <div className="flex items-center gap-3">
+        <Avatar className="h-10 w-10 shrink-0">
+          <AvatarFallback className="bg-primary/10 text-primary font-semibold text-sm">
+            {getInitials(customer.firstName, customer.lastName)}
+          </AvatarFallback>
+        </Avatar>
+        <div className="grid gap-0.5 min-w-0">
+          <CardTitle className="text-base truncate">
+            {customer.firstName} {customer.lastName}
+          </CardTitle>
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Mail className="h-3 w-3 shrink-0" />
+            <span className="truncate">{customer.email}</span>
           </div>
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button type="button" variant="ghost" className="h-8 w-8 p-0 shrink-0">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-            <DropdownMenuItem onClick={() => onViewOrders(customer.email)}>
-              <ShoppingBag className="mr-2 h-4 w-4" />
-              View Orders
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
       </div>
     </CardHeader>
     <CardContent className="pt-0 space-y-2 text-sm">
@@ -188,6 +179,8 @@ export default function CustomersClient() {
   React.useEffect(() => {
     if (error) toast({ title: 'Failed to load customers', description: error, variant: 'destructive' });
   }, [error, toast]);
+
+  const [selectedCustomer, setSelectedCustomer] = React.useState<Customer | null>(null);
 
   const [sorting, setSorting] = React.useState<SortingState>([{ id: 'createdAt', desc: true }]);
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({
@@ -392,6 +385,7 @@ export default function CustomersClient() {
   const totalOrdersOnPage = customers.reduce((sum, c) => sum + (c.totalOrders || 0), 0);
 
   return (
+    <>
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
@@ -500,7 +494,7 @@ export default function CustomersClient() {
                 </div>
               )
               : customers.map((c) => (
-                  <CustomerCard key={c.id} customer={c} onViewOrders={handleViewOrders} />
+                  <CustomerCard key={c.id} customer={c} onClick={() => setSelectedCustomer(c)} />
                 ))}
           </div>
         ) : (
@@ -527,7 +521,7 @@ export default function CustomersClient() {
                     <TableRow
                       key={row.id}
                       className="cursor-pointer hover:bg-muted/40"
-                      onClick={() => handleViewOrders(row.original.email)}
+                      onClick={() => setSelectedCustomer(row.original)}
                     >
                       {row.getVisibleCells().map((cell) => (
                         <TableCell key={cell.id} onClick={cell.column.id === 'actions' ? (e) => e.stopPropagation() : undefined}>
@@ -564,5 +558,82 @@ export default function CustomersClient() {
         </div>
       </CardContent>
     </Card>
+
+    {/* Customer detail dialog */}
+    <Dialog open={!!selectedCustomer} onOpenChange={(open) => { if (!open) setSelectedCustomer(null); }}>
+      <DialogContent className="max-w-md">
+        {selectedCustomer && (
+          <>
+            <DialogHeader>
+              <div className="flex items-center gap-3">
+                <Avatar className="h-12 w-12 shrink-0">
+                  <AvatarFallback className="bg-primary/10 text-primary font-semibold">
+                    {getInitials(selectedCustomer.firstName, selectedCustomer.lastName)}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <DialogTitle className="text-lg">
+                    {selectedCustomer.firstName} {selectedCustomer.lastName}
+                  </DialogTitle>
+                  {selectedCustomer.storeId && (
+                    <Badge variant="outline" className="text-xs mt-0.5">{selectedCustomer.storeId}</Badge>
+                  )}
+                </div>
+              </div>
+            </DialogHeader>
+
+            <div className="space-y-3 text-sm">
+              {selectedCustomer.email && (
+                <div className="flex items-center gap-3">
+                  <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <a href={`mailto:${selectedCustomer.email}`} className="hover:underline truncate">{selectedCustomer.email}</a>
+                </div>
+              )}
+              {selectedCustomer.phone && (
+                <div className="flex items-center gap-3">
+                  <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <a href={`tel:${selectedCustomer.phone}`} className="hover:underline">{selectedCustomer.phone}</a>
+                </div>
+              )}
+              {(selectedCustomer.city || selectedCustomer.country) && (
+                <div className="flex items-center gap-3">
+                  <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span>{[selectedCustomer.city, selectedCustomer.country].filter(Boolean).join(', ')}</span>
+                </div>
+              )}
+
+              <Separator />
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-lg border p-3">
+                  <p className="text-xs text-muted-foreground">Total Orders</p>
+                  <p className="text-xl font-bold mt-0.5">{selectedCustomer.totalOrders}</p>
+                </div>
+                <div className="rounded-lg border p-3">
+                  <p className="text-xs text-muted-foreground">Total Spent</p>
+                  <p className="text-xl font-bold mt-0.5">{formatCurrency(selectedCustomer.totalSpent)}</p>
+                </div>
+              </div>
+
+              {selectedCustomer.shopifyCustomerId && (
+                <p className="text-xs text-muted-foreground">Shopify ID: {selectedCustomer.shopifyCustomerId}</p>
+              )}
+              <div className="text-xs text-muted-foreground space-y-0.5">
+                <p>Added: {selectedCustomer.createdAt ? format(new Date(selectedCustomer.createdAt), 'dd MMM yyyy') : '—'}</p>
+                <p>Updated: {selectedCustomer.updatedAt ? format(new Date(selectedCustomer.updatedAt), 'dd MMM yyyy') : '—'}</p>
+              </div>
+
+              <Separator />
+
+              <Button className="w-full" onClick={() => { handleViewOrders(selectedCustomer.email!); setSelectedCustomer(null); }}>
+                <ShoppingBag className="h-4 w-4 mr-2" />
+                View All Orders
+              </Button>
+            </div>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

@@ -174,7 +174,7 @@ export default function OrdersClient() {
   const [page, setPage] = React.useState(1);
   const [pageSize, setPageSize] = useLocalStorage('orders-page-size', 25);
 
-  // filters — seed from URL params on first mount
+  // filters — seeded from URL and kept in sync so Back button restores them
   const [statusTab, setStatusTab] = React.useState<string>(
     () => searchParams?.get('status') || 'all'
   );
@@ -182,12 +182,31 @@ export default function OrdersClient() {
     () => searchParams?.get('search') || ''
   );
 
-  const [filters, setFilters] = React.useState({
-    dateRange: undefined as DateRange | undefined,
-    storeId: 'all',
-    tourType: 'all',
-    transport: 'all',
+  const [filters, setFilters] = React.useState(() => {
+    const from = searchParams?.get('from');
+    const to = searchParams?.get('to');
+    return {
+      dateRange: from
+        ? { from: new Date(from), to: to ? new Date(to) : undefined } as DateRange
+        : undefined as DateRange | undefined,
+      storeId: searchParams?.get('storeId') || 'all',
+      tourType: searchParams?.get('tourType') || 'all',
+      transport: searchParams?.get('transport') || 'all',
+    };
   });
+
+  // Keep URL in sync with filter state so Back button restores them
+  React.useEffect(() => {
+    const params = new URLSearchParams();
+    if (statusTab !== 'all') params.set('status', statusTab);
+    if (search.trim()) params.set('search', search.trim());
+    if (filters.storeId !== 'all') params.set('storeId', filters.storeId);
+    if (filters.tourType !== 'all') params.set('tourType', filters.tourType);
+    if (filters.transport !== 'all') params.set('transport', filters.transport);
+    if (filters.dateRange?.from) params.set('from', toISODateOnly(filters.dateRange.from)!);
+    if (filters.dateRange?.to) params.set('to', toISODateOnly(filters.dateRange.to)!);
+    router.replace(`?${params.toString()}`, { scroll: false });
+  }, [statusTab, search, filters, router]);
 
   const {
     orders,
@@ -821,8 +840,8 @@ export default function OrdersClient() {
         </CardHeader>
 
         <CardContent>
-          {/* Row 1 — status tabs + search */}
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
+          {/* Row 1 — status tabs + filters */}
+          <div className="flex flex-wrap gap-2 mb-2">
             <div className="overflow-x-auto shrink-0">
               <TabsList>
                 <TabsTrigger value="all">All</TabsTrigger>
@@ -832,19 +851,6 @@ export default function OrdersClient() {
                 <TabsTrigger value="Canceled">Canceled</TabsTrigger>
               </TabsList>
             </div>
-            <div className="relative flex-1 min-w-0">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-              <Input
-                placeholder="Search by customer, email, order..."
-                value={search}
-                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                className="pl-10"
-              />
-            </div>
-          </div>
-
-          {/* Row 2 — other filters */}
-          <div className="flex flex-wrap gap-2 mb-4">
             <DatePickerWithRange
               date={filters.dateRange}
               onDateChange={(range) => { setFilters({ ...filters, dateRange: range }); setPage(1); }}
@@ -871,6 +877,17 @@ export default function OrdersClient() {
                 {(shopifyStores || []).map((store) => (<SelectItem key={store.id} value={(store as any).internalName}>{(store as any).internalName}</SelectItem>))}
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Row 2 — search */}
+          <div className="relative mb-4">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+            <Input
+              placeholder="Search by customer, email, order..."
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              className="pl-10"
+            />
           </div>
 
 
