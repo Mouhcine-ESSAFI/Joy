@@ -6,6 +6,7 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { TourMappingsService } from './tour-mappings.service';
@@ -26,6 +27,13 @@ export class TourMappingsController {
   @Roles(UserRole.OWNER, UserRole.ADMIN, UserRole.TRAVEL_AGENT, UserRole.FINANCE, UserRole.DRIVER)
   findAll() {
     return this.tourMappingsService.findAll();
+  }
+
+  /** Returns all Shopify product titles for a given store — used to populate the create dialog */
+  @Get('store-products')
+  @Roles(UserRole.OWNER, UserRole.ADMIN)
+  getStoreProducts(@Query('storeId') storeId: string) {
+    return this.tourMappingsService.getStoreProducts(storeId);
   }
 
   @Get(':id')

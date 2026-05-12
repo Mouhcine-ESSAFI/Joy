@@ -2,10 +2,9 @@
 
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { Loader2, Truck, CalendarDays, LogOut, Sun, Moon, Laptop } from 'lucide-react';
+import { Loader2, Truck, CalendarDays, LogOut, Sun, Moon, Laptop, Check } from 'lucide-react';
 import { useAuthContext } from '@/context/AuthContext';
 import { useTheme } from 'next-themes';
-import { useLocalStorage } from '@/hooks/use-local-storage';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { NotificationCenter } from '@/components/NotificationCenter';
@@ -34,8 +33,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { isAuthenticated, loading, user, logout } = useAuthContext();
-  const { setTheme } = useTheme();
-  const [, rawSetTheme] = useLocalStorage('joy-theme', 'system');
+  const { theme, setTheme } = useTheme();
 
   useEffect(() => {
     if (loading) return;
@@ -60,10 +58,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     router.push('/login');
   };
 
-  const applyTheme = (t: string) => {
-    setTheme(t);
-    rawSetTheme(t as any);
-  };
 
   return (
     <div className="min-h-screen flex flex-col bg-muted/30">
@@ -102,22 +96,25 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger>
-                  <Sun className="mr-2 h-4 w-4" />
+                  {theme === 'dark' ? <Moon className="mr-2 h-4 w-4" /> : theme === 'light' ? <Sun className="mr-2 h-4 w-4" /> : <Laptop className="mr-2 h-4 w-4" />}
                   <span>Theme</span>
                 </DropdownMenuSubTrigger>
                 <DropdownMenuPortal>
                   <DropdownMenuSubContent>
-                    <DropdownMenuItem onClick={() => applyTheme('light')}>
+                    <DropdownMenuItem onClick={() => setTheme('light')}>
                       <Sun className="mr-2 h-4 w-4" />
                       <span>Light</span>
+                      {theme === 'light' && <Check className="ml-auto h-4 w-4" />}
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => applyTheme('dark')}>
+                    <DropdownMenuItem onClick={() => setTheme('dark')}>
                       <Moon className="mr-2 h-4 w-4" />
                       <span>Dark</span>
+                      {theme === 'dark' && <Check className="ml-auto h-4 w-4" />}
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => applyTheme('system')}>
+                    <DropdownMenuItem onClick={() => setTheme('system')}>
                       <Laptop className="mr-2 h-4 w-4" />
                       <span>System</span>
+                      {theme === 'system' && <Check className="ml-auto h-4 w-4" />}
                     </DropdownMenuItem>
                   </DropdownMenuSubContent>
                 </DropdownMenuPortal>

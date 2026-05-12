@@ -355,6 +355,9 @@ import { isApiError } from './types';
   
     delete: (id: string) =>
       client.delete<void>(`/tour-mappings/${id}`),
+
+    storeProducts: (storeId: string) =>
+      client.get<string[]>(`/tour-mappings/store-products?storeId=${encodeURIComponent(storeId)}`),
   };
   
   // ============================================

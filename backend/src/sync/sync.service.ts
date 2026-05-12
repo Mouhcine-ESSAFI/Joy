@@ -73,18 +73,21 @@ export class SyncService implements OnModuleInit {
 
     this.logger.log(`🔄 Syncing store: ${store.internalName} (${store.shopifyDomain})`);
 
-    // Find latest order in our database for this store
-    const latestOrder = await this.ordersRepository.findOne({
-      where: { storeId: store.internalName },
-      order: { createdAt: 'DESC' },
-    });
-
-    const sinceDate = latestOrder?.createdAt || null;
+    // When initialSyncCompleted is false (e.g. after a manual reset), fetch everything
+    // from the beginning regardless of what's already in the DB.
+    let sinceDate: Date | null = null;
+    if (store.initialSyncCompleted) {
+      const latestOrder = await this.ordersRepository.findOne({
+        where: { storeId: store.internalName },
+        order: { createdAt: 'DESC' },
+      });
+      sinceDate = latestOrder?.createdAt || null;
+    }
 
     this.logger.log(
       sinceDate
         ? `📅 Fetching orders since: ${sinceDate.toISOString()}`
-        : `📅 Fetching all orders (initial sync)`
+        : `📅 Fetching all orders (initial sync or manual reset)`
     );
 
     // Fetch orders from Shopify
