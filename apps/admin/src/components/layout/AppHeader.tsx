@@ -21,6 +21,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useRouter } from 'next/navigation';
 import { useAuthContext } from '@/context/AuthContext';
+import { InstallAppButton } from './InstallAppButton';
 
 export default function AppHeader({ onToggleSidebar, isSidebarCollapsed }: { onToggleSidebar: () => void, isSidebarCollapsed: boolean }) {
   const { theme, setTheme } = useTheme();
@@ -69,6 +70,7 @@ export default function AppHeader({ onToggleSidebar, isSidebarCollapsed }: { onT
       </div>
 
       <div className="flex w-full items-center justify-end gap-2 md:gap-4">
+        <InstallAppButton />
         <NotificationCenter />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -119,6 +121,10 @@ export default function AppHeader({ onToggleSidebar, isSidebarCollapsed }: { onT
                 </DropdownMenuPortal>
             </DropdownMenuSub>
             <DropdownMenuSeparator />
+            <div className="sm:hidden">
+              <InstallAppButton menuItem />
+            </div>
+            <DropdownMenuSeparator className="sm:hidden" />
             <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
               Logout
             </DropdownMenuItem>

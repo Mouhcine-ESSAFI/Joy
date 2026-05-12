@@ -121,6 +121,10 @@ export default function AppHeader({ onToggleSidebar, isSidebarCollapsed }: { onT
                 </DropdownMenuPortal>
             </DropdownMenuSub>
             <DropdownMenuSeparator />
+            <div className="sm:hidden">
+              <InstallAppButton menuItem />
+            </div>
+            <DropdownMenuSeparator className="sm:hidden" />
             <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
               Logout
             </DropdownMenuItem>

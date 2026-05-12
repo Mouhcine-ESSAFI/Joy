@@ -121,6 +121,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </DropdownMenuSub>
 
               <DropdownMenuSeparator />
+              <div className="sm:hidden">
+                <InstallAppButton menuItem />
+              </div>
+              <DropdownMenuSeparator className="sm:hidden" />
               <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
                 <LogOut className="h-4 w-4 mr-2" />
                 Sign out
