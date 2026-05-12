@@ -94,7 +94,7 @@ export class CustomersService {
             : '0.00';
           // Override phone from orders (reflects manual edits on order detail)
           if (key && phoneMap.has(key)) {
-            customer.phone = phoneMap.get(key);
+            customer.phone = phoneMap.get(key)!;
           }
         }
       }
