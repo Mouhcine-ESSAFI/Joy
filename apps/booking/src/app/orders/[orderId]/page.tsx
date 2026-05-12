@@ -573,7 +573,7 @@ export default function OrderDetailsPage() {
                         name="accommodationName"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Hotel/Camp Name</FormLabel>
+                            <FormLabel>Host Name</FormLabel>
                             <FormControl>
                               <Input {...field} value={field.value ?? ''} />
                             </FormControl>
@@ -582,21 +582,19 @@ export default function OrderDetailsPage() {
                         )}
                       />
 
-                      <div className="lg:col-span-3">
-                        <FormField
-                          control={form.control}
-                          name="pickupLocation"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Pickup Location</FormLabel>
-                              <FormControl>
-                                <Input {...field} value={field.value ?? ''} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
+                      <FormField
+                        control={form.control}
+                        name="pickupLocation"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Pickup Location</FormLabel>
+                            <FormControl>
+                              <Input {...field} value={field.value ?? ''} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     </div>
 
                     <Separator />
