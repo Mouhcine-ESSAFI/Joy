@@ -432,7 +432,10 @@ export default function OrderDetailsPage() {
                 <Card>
                   <CardHeader>
                     <CardTitle>Tour Details</CardTitle>
-                    <CardDescription>{order.tourTitle}</CardDescription>
+                    <CardDescription className="flex items-center gap-2">
+                      {order.tourTitle}
+                      {order.tourCode && <Badge variant="outline" className="text-xs font-mono">{order.tourCode}</Badge>}
+                    </CardDescription>
                   </CardHeader>
 
                   <CardContent className="space-y-6">
@@ -498,15 +501,6 @@ export default function OrderDetailsPage() {
                         )}
                       />
 
-                      <FormItem>
-                        <FormLabel>Tour Code</FormLabel>
-                        <div className="flex h-9 items-center">
-                          {order.tourCode
-                            ? <Badge variant="outline" className="text-sm font-mono">{order.tourCode}</Badge>
-                            : <span className="text-sm text-muted-foreground">Not assigned</span>}
-                        </div>
-                        <p className="text-[11px] text-muted-foreground">Managed via Tour Code Mapping</p>
-                      </FormItem>
 
                       <FormField
                         control={form.control}
