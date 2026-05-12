@@ -42,7 +42,6 @@ const orderSchema = z.object({
 
   tourDate: z.date().nullable(),
   tourHour: z.string().optional().nullable(),
-  tourCode: z.string().optional().nullable(),
   tourType: z.enum(['Shared', 'Private']).nullable(),
   campType: z.string().optional().nullable(),
   roomType: z.string().optional().nullable(),
@@ -115,7 +114,6 @@ export default function OrderDetailsPage() {
       note: '',
       tourDate: null,
       tourHour: '',
-      tourCode: '',
       tourType: null,
       campType: '',
       roomType: '',
@@ -159,7 +157,6 @@ export default function OrderDetailsPage() {
 
       tourDate: order.tourDate ? new Date(order.tourDate) : null,
       tourHour: order.tourHour ?? '',
-      tourCode: order.tourCode ?? '',
       tourType: order.tourType ? (order.tourType as 'Shared' | 'Private') : null,
       campType: order.campType ?? '',
       roomType: order.roomType ?? '',
@@ -211,7 +208,6 @@ export default function OrderDetailsPage() {
 
       tourDate: values.tourDate ? format(values.tourDate, 'yyyy-MM-dd') : null,
       tourHour: cleanString(values.tourHour),
-      tourCode: cleanString(values.tourCode),
       tourType: values.tourType ?? null,
 
       campType: cleanString(values.campType),
@@ -502,19 +498,15 @@ export default function OrderDetailsPage() {
                         )}
                       />
 
-                      <FormField
-                        control={form.control}
-                        name="tourCode"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Tour Code</FormLabel>
-                            <FormControl>
-                              <Input {...field} value={field.value ?? ''} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                      <FormItem>
+                        <FormLabel>Tour Code</FormLabel>
+                        <div className="flex h-9 items-center">
+                          {order.tourCode
+                            ? <Badge variant="outline" className="text-sm font-mono">{order.tourCode}</Badge>
+                            : <span className="text-sm text-muted-foreground">Not assigned</span>}
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">Managed via Tour Code Mapping</p>
+                      </FormItem>
 
                       <FormField
                         control={form.control}
