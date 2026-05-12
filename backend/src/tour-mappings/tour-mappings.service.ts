@@ -98,7 +98,17 @@ export class TourMappingsService {
       );
     }
     const mapping = this.mappingsRepository.create(createDto);
-    return await this.mappingsRepository.save(mapping);
+    const saved = await this.mappingsRepository.save(mapping);
+
+    // Propagate to all existing orders in the same store with the matching product title
+    if (saved.tourCode) {
+      await this.ordersRepository.update(
+        { storeId: saved.storeId, tourTitle: saved.productTitle },
+        { tourCode: saved.tourCode },
+      );
+    }
+
+    return saved;
   }
 
   /** Update tour code. If the code changes, propagate to all matching orders in the same store. */
@@ -112,10 +122,10 @@ export class TourMappingsService {
     Object.assign(mapping, updateDto);
     const saved = await this.mappingsRepository.save(mapping);
 
-    // Propagate code change to all orders that had the old code for this store
-    if (newCode !== oldCode && oldCode) {
+    // Propagate code change to all orders matching this store + product title
+    if (newCode !== oldCode) {
       await this.ordersRepository.update(
-        { storeId: mapping.storeId, tourCode: oldCode },
+        { storeId: mapping.storeId, tourTitle: mapping.productTitle },
         { tourCode: newCode ?? undefined },
       );
     }
