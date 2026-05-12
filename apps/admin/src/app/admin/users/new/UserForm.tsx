@@ -90,7 +90,7 @@ const getDefaultPermissions = (role: UserRole) => {
       return {
         orders: allTrue, order_notes: allTrue, order_supplements: allTrue, order_history: allTrue,
         users: allTrue, roles: allTrue,
-        stores: true, tour_codes: allTrue, room_types: allTrue, transport_types: allTrue,
+        stores: allTrue, tour_codes: allTrue, room_types: allTrue, transport_types: allTrue,
         invoices: allTrue, payments: allTrue, reports: allTrue,
       };
     case 'Travel Agent':
@@ -137,6 +137,7 @@ export default function UserForm({ user, userId }: UserFormProps) {
 
   const form = useForm<UserFormValues>({
     resolver: zodResolver(userSchema),
+    mode: 'onChange',
     defaultValues: user ? {
         ...user,
         password: '',
@@ -295,7 +296,7 @@ export default function UserForm({ user, userId }: UserFormProps) {
             <Button type="button" variant="outline" onClick={() => router.back()}>
                 Cancel
             </Button>
-            <Button type="submit" disabled={isSaving} className="bg-accent text-accent-foreground hover:bg-accent/90">
+            <Button type="submit" disabled={isSaving} className={form.formState.isValid ? "bg-black text-white hover:bg-black/90" : ""}>
                 <Save className="mr-2"/>
                 {isSaving ? 'Saving...' : 'Save User'}
             </Button>

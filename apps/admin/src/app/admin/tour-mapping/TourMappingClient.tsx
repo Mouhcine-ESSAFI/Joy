@@ -58,7 +58,7 @@ export default function TourMappingClient() {
     setStoreProducts([]);
     api.tourMappings.storeProducts(formState.storeId)
       .then(setStoreProducts)
-      .catch(() => toast({ variant: 'destructive', title: 'Failed to load products', description: 'Could not fetch product titles from Shopify.' }))
+      .catch((e: any) => toast({ variant: 'destructive', title: 'Failed to load products', description: e?.message || 'Could not fetch product titles from Shopify.' }))
       .finally(() => setProductsLoading(false));
   }, [formState.storeId, editingMapping]);
 

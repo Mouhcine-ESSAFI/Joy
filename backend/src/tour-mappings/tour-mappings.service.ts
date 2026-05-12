@@ -2,6 +2,8 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  BadGatewayException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -13,6 +15,8 @@ import { ShopifyStoresService } from '../shopify-stores/shopify-stores.service';
 
 @Injectable()
 export class TourMappingsService {
+  private readonly logger = new Logger(TourMappingsService.name);
+
   constructor(
     @InjectRepository(TourCodeMapping)
     private mappingsRepository: Repository<TourCodeMapping>,
@@ -52,13 +56,22 @@ export class TourMappingsService {
       'Content-Type': 'application/json',
     };
 
+    this.logger.log(`Fetching products for store "${storeId}" from ${store.shopifyDomain} (API ${store.apiVersion})`);
+
     const titles = new Set<string>();
-    let url: string | null =
-      `${baseUrl}/products.json?fields=title&limit=250`;
+    let url: string | null = `${baseUrl}/products.json?fields=title&limit=250`;
 
     while (url) {
       const res = await fetch(url, { headers });
-      if (!res.ok) break;
+      if (!res.ok) {
+        let body = '';
+        try { body = await res.text(); } catch {}
+        this.logger.error(`Shopify products fetch failed: ${res.status} ${res.statusText} — ${body}`);
+        throw new BadGatewayException(
+          `Shopify returned ${res.status} when fetching products for store "${storeId}". ` +
+          `Check that the access token has the read_products scope.`,
+        );
+      }
       const data = await res.json();
       for (const p of data.products || []) {
         if (p.title) titles.add(p.title);
@@ -70,6 +83,7 @@ export class TourMappingsService {
       url = next ? next[1] : null;
     }
 
+    this.logger.log(`Fetched ${titles.size} product titles for store "${storeId}"`);
     return [...titles].sort();
   }
 
