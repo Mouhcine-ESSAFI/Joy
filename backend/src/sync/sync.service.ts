@@ -171,10 +171,18 @@ export class SyncService implements OnModuleInit {
       this.logger.log(`📥 Total orders fetched from Shopify: ${allOrders.length}`);
 
       // Batch upsert unique customers from all fetched orders
-      const uniqueCustomers = allOrders
-        .map((o) => o.customer)
-        .filter((c): c is NonNullable<typeof c> => !!c?.id);
-      const customerMap = new Map(uniqueCustomers.map((c) => [c.id.toString(), c]));
+      // Attach country code from billing/shipping address for phone normalization
+      const customerMap = new Map<string, any>();
+      for (const o of allOrders) {
+        if (!o.customer?.id) continue;
+        const id = o.customer.id.toString();
+        if (!customerMap.has(id)) {
+          customerMap.set(id, {
+            ...o.customer,
+            _countryCode: o.billing_address?.country_code || o.shipping_address?.country_code,
+          });
+        }
+      }
       if (customerMap.size > 0) {
         try {
           await this.customersService.upsertManyFromShopify(

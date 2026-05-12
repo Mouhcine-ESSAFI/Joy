@@ -34,6 +34,8 @@ import {
   MapPin,
   ShoppingBag,
   Users,
+  Copy,
+  MessageCircle,
 } from 'lucide-react';
 import type { Customer } from '@/lib/types';
 import { Input } from '@/components/ui/input';
@@ -105,6 +107,9 @@ function SortHeader({ column, label }: { column: any; label: string }) {
   );
 }
 
+const whatsappUrl = (phone: string) =>
+  `https://wa.me/${phone.replace(/\D/g, '')}`;
+
 const CustomerCard = ({ customer, onClick }: { customer: Customer; onClick: () => void }) => (
   <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={onClick}>
     <CardHeader className="pb-3">
@@ -129,7 +134,10 @@ const CustomerCard = ({ customer, onClick }: { customer: Customer; onClick: () =
       {customer.phone && (
         <div className="flex items-center gap-2 text-muted-foreground">
           <Phone className="h-3.5 w-3.5 shrink-0" />
-          <span>{customer.phone}</span>
+          <a href={`tel:${customer.phone}`} className="hover:text-foreground transition-colors" onClick={(e) => e.stopPropagation()}>{customer.phone}</a>
+          <a href={whatsappUrl(customer.phone)} target="_blank" rel="noreferrer" aria-label="WhatsApp" onClick={(e) => e.stopPropagation()} className="ml-auto text-green-600 hover:text-green-700">
+            <MessageCircle className="h-4 w-4" />
+          </a>
         </div>
       )}
       {(customer.city || customer.country) && (
@@ -197,25 +205,43 @@ export default function CustomersClient() {
     window.location.href = `${bookingBase}/orders?search=${encodeURIComponent(email)}`;
   };
 
-  const handleExport = () => {
-    if (!customers.length) { toast({ title: 'Nothing to export' }); return; }
-    const headers = ['First Name', 'Last Name', 'Email', 'Phone', 'Country', 'City', 'Total Orders', 'Total Spent', 'Store', 'Created At'];
-    const rows = customers.map((c) => [
-      c.firstName ?? '', c.lastName ?? '', c.email ?? '', c.phone ?? '',
-      c.country ?? '', c.city ?? '', c.totalOrders, c.totalSpent,
-      c.storeId ?? '', c.createdAt ? new Date(c.createdAt).toLocaleDateString() : '',
-    ]);
-    const csv = [headers, ...rows]
-      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
-      .join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `customers-${new Date().toISOString().slice(0, 10)}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
-    toast({ title: 'Export Complete', description: `${customers.length} customers exported.` });
+  const [isExporting, setIsExporting] = React.useState(false);
+
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      const { api } = await import('@/lib/api-client');
+      const response = await api.customers.findAll({
+        search: debouncedSearch || undefined,
+        storeId: storeFilter === 'all' ? undefined : storeFilter,
+        pageSize: 10000,
+        page: 1,
+      });
+      const all = response.data;
+      if (!all.length) { toast({ title: 'Nothing to export' }); return; }
+      const headers = ['First Name', 'Last Name', 'Email', 'Phone', 'Country', 'City', 'Total Orders', 'Total Spent', 'Store', 'Created At'];
+      const rows = all.map((c) => [
+        c.firstName ?? '', c.lastName ?? '', c.email ?? '', c.phone ?? '',
+        c.country ?? '', c.city ?? '', c.totalOrders, c.totalSpent,
+        c.storeId ?? '', c.createdAt ? new Date(c.createdAt).toLocaleDateString() : '',
+      ]);
+      const csv = [headers, ...rows]
+        .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+        .join('\n');
+      const BOM = '﻿';
+      const blob = new Blob([BOM + csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `customers-${new Date().toISOString().slice(0, 10)}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+      toast({ title: 'Export Complete', description: `${all.length} customers exported.` });
+    } catch {
+      toast({ title: 'Export failed', variant: 'destructive' });
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const columns: ColumnDef<Customer>[] = [
@@ -243,15 +269,20 @@ export default function CustomersClient() {
     {
       accessorKey: 'phone',
       header: 'Phone',
-      cell: ({ row }) => (
-        <span className="text-muted-foreground text-sm">
-          {row.original.phone ? (
-            <a href={`tel:${row.original.phone}`} className="hover:text-foreground transition-colors">
-              {row.original.phone}
+      cell: ({ row }) => {
+        const phone = row.original.phone;
+        if (!phone) return <span className="text-muted-foreground text-sm">—</span>;
+        return (
+          <div className="flex items-center gap-2">
+            <a href={`tel:${phone}`} className="text-sm hover:text-foreground transition-colors text-muted-foreground">
+              {phone}
             </a>
-          ) : '—'}
-        </span>
-      ),
+            <a href={whatsappUrl(phone)} target="_blank" rel="noreferrer" aria-label="WhatsApp" className="text-green-600 hover:text-green-700 shrink-0">
+              <MessageCircle className="h-3.5 w-3.5" />
+            </a>
+          </div>
+        );
+      },
     },
     {
       id: 'location',
@@ -320,22 +351,39 @@ export default function CustomersClient() {
     {
       id: 'actions',
       enableHiding: false,
-      cell: ({ row }) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-8 w-8 p-0">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-            <DropdownMenuItem onClick={() => handleViewOrders(row.original.email)}>
-              <ShoppingBag className="mr-2 h-4 w-4" />
-              View Orders
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ),
+      cell: ({ row }) => {
+        const c = row.original;
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="h-8 w-8 p-0">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => c.email && handleViewOrders(c.email)}>
+                <ShoppingBag className="mr-2 h-4 w-4" />
+                View Orders
+              </DropdownMenuItem>
+              {c.phone && (
+                <>
+                  <DropdownMenuItem asChild>
+                    <a href={whatsappUrl(c.phone)} target="_blank" rel="noreferrer">
+                      <MessageCircle className="mr-2 h-4 w-4 text-green-600" />
+                      WhatsApp
+                    </a>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => { navigator.clipboard.writeText(c.phone!); toast({ title: 'Phone copied' }); }}>
+                    <Copy className="mr-2 h-4 w-4" />
+                    Copy Phone
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        );
+      },
     },
   ];
 
@@ -406,9 +454,9 @@ export default function CustomersClient() {
               <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin' : ''}`} />
               <span className="hidden sm:inline">Refresh</span>
             </Button>
-            <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={handleExport}>
-              <Download className="h-3.5 w-3.5" />
-              <span>Export CSV</span>
+            <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={handleExport} disabled={isExporting}>
+              <Download className={`h-3.5 w-3.5 ${isExporting ? 'animate-bounce' : ''}`} />
+              <span>{isExporting ? 'Exporting…' : 'Export CSV'}</span>
             </Button>
           </div>
         </div>
@@ -592,7 +640,11 @@ export default function CustomersClient() {
               {selectedCustomer.phone && (
                 <div className="flex items-center gap-3">
                   <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <a href={`tel:${selectedCustomer.phone}`} className="hover:underline">{selectedCustomer.phone}</a>
+                  <a href={`tel:${selectedCustomer.phone}`} className="hover:underline flex-1">{selectedCustomer.phone}</a>
+                  <a href={whatsappUrl(selectedCustomer.phone)} target="_blank" rel="noreferrer" aria-label="WhatsApp" className="flex items-center gap-1 text-xs text-green-600 hover:text-green-700 font-medium">
+                    <MessageCircle className="h-4 w-4" />
+                    WhatsApp
+                  </a>
                 </div>
               )}
               {(selectedCustomer.city || selectedCustomer.country) && (

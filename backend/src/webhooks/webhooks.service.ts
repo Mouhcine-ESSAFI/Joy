@@ -124,10 +124,12 @@ export class WebhooksService {
       // Upsert customer from Shopify payload
       if (payload.customer?.id && store) {
         try {
+          const billingCountryCode = payload.billing_address?.country_code || payload.shipping_address?.country_code;
           await this.customersService.upsertFromShopify(
             payload.customer,
             store.shopifyDomain,
             store.internalName,
+            billingCountryCode,
           );
         } catch (e: any) {
           this.logger.warn(`Failed to upsert customer: ${e.message}`);
@@ -250,10 +252,12 @@ export class WebhooksService {
       // Upsert customer from updated payload
       if (payload.customer?.id && store) {
         try {
+          const billingCountryCode = payload.billing_address?.country_code || payload.shipping_address?.country_code;
           await this.customersService.upsertFromShopify(
             payload.customer,
             store.shopifyDomain,
             store.internalName,
+            billingCountryCode,
           );
         } catch (e: any) {
           this.logger.warn(`Failed to upsert customer on update: ${e.message}`);
@@ -343,12 +347,13 @@ export class WebhooksService {
                          null;
 
     const countryCode = shopifyOrder.billing_address?.country_code || shopifyOrder.shipping_address?.country_code;
-    const rawPhone = shopifyOrder.billing_address?.phone ||
-                     shopifyOrder.customer?.phone ||
-                     shopifyOrder.phone ||
-                     shopifyOrder.shipping_address?.phone ||
-                     null;
-    const customerPhone = this.shopifyParserService.normalizePhone(rawPhone, countryCode);
+    // customer.phone is E.164 from Shopify — prefer it; fall back to address phone + normalize
+    const customerPhone =
+      this.shopifyParserService.normalizePhone(shopifyOrder.customer?.phone, countryCode) ??
+      this.shopifyParserService.normalizePhone(
+        shopifyOrder.billing_address?.phone || shopifyOrder.phone || shopifyOrder.shipping_address?.phone || null,
+        countryCode,
+      );
 
     const subtotal = parseFloat(shopifyOrder.subtotal_price || '0');
     const totalDiscount = parseFloat(shopifyOrder.total_discounts || '0');

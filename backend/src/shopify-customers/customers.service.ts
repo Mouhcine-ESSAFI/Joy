@@ -3,6 +3,7 @@ import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
 import { Repository, Like, FindOptionsWhere, In, DataSource } from 'typeorm';
 import { Customer } from './entities/customer.entity';
 import { CustomerFilterDto } from './dto/customer-filter.dto';
+import { ShopifyParserService } from '../shopify-parser/shopify-parser.service';
 
 @Injectable()
 export class CustomersService {
@@ -13,6 +14,7 @@ export class CustomersService {
     private readonly customersRepository: Repository<Customer>,
     @InjectDataSource()
     private readonly dataSource: DataSource,
+    private readonly shopifyParserService: ShopifyParserService,
   ) {}
 
   async findAll(filters: CustomerFilterDto) {
@@ -134,6 +136,7 @@ export class CustomersService {
     },
     storeDomain: string,
     storeId: string,
+    countryCode?: string,
   ): Promise<Customer> {
     const shopifyId = shopifyCustomer.id.toString();
 
@@ -146,7 +149,7 @@ export class CustomersService {
       firstName: shopifyCustomer.first_name ?? undefined,
       lastName: shopifyCustomer.last_name ?? undefined,
       email: shopifyCustomer.email ?? undefined,
-      phone: shopifyCustomer.phone ?? undefined,
+      phone: this.shopifyParserService.normalizePhone(shopifyCustomer.phone, countryCode) ?? undefined,
       totalOrders: shopifyCustomer.orders_count ?? 0,
       totalSpent: shopifyCustomer.total_spent ?? '0',
       country: shopifyCustomer.default_address?.country ?? undefined,
@@ -177,6 +180,7 @@ export class CustomersService {
       orders_count?: number;
       total_spent?: string;
       default_address?: { country?: string; city?: string };
+      _countryCode?: string;
     }>,
     storeDomain: string,
     storeId: string,
@@ -199,7 +203,7 @@ export class CustomersService {
         firstName: sc.first_name ?? undefined,
         lastName: sc.last_name ?? undefined,
         email: sc.email ?? undefined,
-        phone: sc.phone ?? undefined,
+        phone: this.shopifyParserService.normalizePhone(sc.phone, sc._countryCode) ?? undefined,
         totalOrders: sc.orders_count ?? 0,
         totalSpent: sc.total_spent ?? '0',
         country: sc.default_address?.country ?? undefined,

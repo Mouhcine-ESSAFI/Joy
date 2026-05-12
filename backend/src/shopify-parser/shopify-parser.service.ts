@@ -73,8 +73,11 @@ export class ShopifyParserService {
     const countryCode = billing.country_code || shipping.country_code;
     const customerName = billing.name || shipping.name || `${customer.first_name || ''} ${customer.last_name || ''}`.trim() || 'Unknown';
     const customerEmail = shopifyOrder.email || customer.email || shopifyOrder.contact_email;
+    // customer.phone is E.164 from Shopify — prefer it; fall back to address phone + normalize
+    const customerPhone = (this.normalizePhone(customer.phone, countryCode))
+      ?? (this.normalizePhone(billing.phone || shipping.phone || null, countryCode))
+      ?? undefined;
     const billingPhone = (this.normalizePhone(billing.phone || shipping.phone || null, countryCode)) ?? undefined;
-    const customerPhone = billingPhone || ((this.normalizePhone(customer.phone, countryCode)) ?? undefined);
 
     // Extract payment info
     const subtotal = parseFloat(shopifyOrder.subtotal_price || '0');
