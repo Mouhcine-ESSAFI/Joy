@@ -4,10 +4,10 @@ import { TourMappingsService } from './tour-mappings.service';
 import { TourMappingsController } from './tour-mappings.controller';
 import { TourCodeMapping } from './entities/tour-mapping.entity';
 import { Order } from '../orders/entities/order.entity';
-import { ShopifyStoresModule } from '../shopify-stores/shopify-stores.module';
+import { ShopifyStore } from '../shopify-stores/entities/shopify-store.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([TourCodeMapping, Order]), ShopifyStoresModule],
+  imports: [TypeOrmModule.forFeature([TourCodeMapping, Order, ShopifyStore])],
   controllers: [TourMappingsController],
   providers: [TourMappingsService],
   exports: [TourMappingsService],

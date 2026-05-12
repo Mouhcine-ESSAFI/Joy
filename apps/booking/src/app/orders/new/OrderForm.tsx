@@ -165,7 +165,7 @@ export default function NewOrderForm() {
         title: 'Order Created', 
         description: `Manual order for ${values.customerName} has been created successfully.` 
       });
-      router.push('/orders');
+      router.back();
     } catch (e: any) {
       toast({ 
         title: 'Creation Failed', 

@@ -11,7 +11,7 @@ import { TourCodeMapping } from './entities/tour-mapping.entity';
 import { CreateTourMappingDto } from './dto/create-tour-mapping.dto';
 import { UpdateTourMappingDto } from './dto/update-tour-mapping.dto';
 import { Order } from '../orders/entities/order.entity';
-import { ShopifyStoresService } from '../shopify-stores/shopify-stores.service';
+import { ShopifyStore } from '../shopify-stores/entities/shopify-store.entity';
 
 @Injectable()
 export class TourMappingsService {
@@ -22,7 +22,8 @@ export class TourMappingsService {
     private mappingsRepository: Repository<TourCodeMapping>,
     @InjectRepository(Order)
     private ordersRepository: Repository<Order>,
-    private shopifyStoresService: ShopifyStoresService,
+    @InjectRepository(ShopifyStore)
+    private shopifyStoresRepository: Repository<ShopifyStore>,
   ) {}
 
   async findAll() {
@@ -47,7 +48,7 @@ export class TourMappingsService {
 
   /** Fetch all product titles from the Shopify store (used to populate the create-mapping dropdown) */
   async getStoreProducts(storeId: string): Promise<string[]> {
-    const store = await this.shopifyStoresService.findByInternalName(storeId);
+    const store = await this.shopifyStoresRepository.findOne({ where: { internalName: storeId } });
     if (!store) throw new NotFoundException(`Store "${storeId}" not found`);
 
     const baseUrl = `https://${store.shopifyDomain}/admin/api/${store.apiVersion}`;

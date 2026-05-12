@@ -260,7 +260,7 @@ export default function OrderDetailsPage() {
           </CardHeader>
           <CardContent>
             <p>No valid order ID provided.</p>
-            <Button onClick={() => router.push('/orders')} className="mt-4">
+            <Button onClick={() => router.back()} className="mt-4">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Orders
             </Button>
@@ -319,7 +319,7 @@ export default function OrderDetailsPage() {
                         variant="outline"
                         size="icon"
                         className="h-8 w-8 shrink-0"
-                        onClick={() => router.push('/orders')}
+                        onClick={() => router.back()}
                       >
                         <ArrowLeft className="h-4 w-4" />
                         <span className="sr-only">Back</span>
@@ -331,7 +331,7 @@ export default function OrderDetailsPage() {
                           <button
                             type="button"
                             className="hover:text-foreground transition-colors"
-                            onClick={() => router.push('/orders')}
+                            onClick={() => router.back()}
                           >
                             Orders
                           </button>
