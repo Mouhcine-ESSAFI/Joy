@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, PlusCircle, ArrowLeft, Copy, Check, Webhook } from "lucide-react";
+import { MoreHorizontal, PlusCircle, ArrowLeft, Copy, Check, Webhook, Trash2 } from "lucide-react";
 import AppLayout from "@/components/layout/AppLayout";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -17,6 +17,7 @@ import { useShopifyStores } from "@/lib/hooks";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from "next/navigation";
 import api from "@/lib/api-client";
+import { useAuthContext } from "@/context/AuthContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -58,8 +59,11 @@ export default function IntegrationsPage() {
   const [editCreds, setEditCreds] = useState({ accessToken: '', webhookSecret: ''});
 
   const [deletingStore, setDeletingStore] = useState<ShopifyStore | null>(null);
+  const [storeToDelete, setStoreToDelete] = useState<ShopifyStore | null>(null);
 
   const { toast } = useToast();
+  const { user } = useAuthContext();
+  const isOwner = user?.role === 'Owner';
 
   useEffect(() => {
     if (!isAddDialogOpen) {
@@ -118,9 +122,22 @@ export default function IntegrationsPage() {
         await api.stores.create(newStore);
         toast({ title: "Store Connected", description: `Store ${newStore.internalName} has been connected.` });
         setIsAddDialogOpen(false);
-        notifyStoresUpdated(); // ⭐ CHANGED: Use helper
+        notifyStoresUpdated();
     } catch (e: any) {
         toast({ variant: "destructive", title: 'Failed to connect', description: e.message });
+    }
+  }
+
+  const handleDeleteStore = async () => {
+    if (!storeToDelete) return;
+    try {
+      await api.stores.delete(storeToDelete.id);
+      toast({ title: 'Store Deleted', description: `Store "${storeToDelete.internalName}" has been permanently deleted.` });
+      setStoreToDelete(null);
+      notifyStoresUpdated();
+    } catch (e: any) {
+      toast({ variant: 'destructive', title: 'Delete Failed', description: e.message });
+      setStoreToDelete(null);
     }
   }
 
@@ -192,12 +209,21 @@ export default function IntegrationsPage() {
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end">
                                             <DropdownMenuItem onClick={() => setEditingStore(store)}>Edit Credentials</DropdownMenuItem>
-                                            <DropdownMenuItem 
+                                            <DropdownMenuItem
                                               className={store.status === 'active' ? 'text-destructive focus:text-destructive' : ''}
                                               onClick={() => setDeletingStore(store)}
                                             >
                                               {store.status === 'active' ? 'Deactivate' : 'Activate'}
                                             </DropdownMenuItem>
+                                            {isOwner && (
+                                              <DropdownMenuItem
+                                                className="text-destructive focus:text-destructive"
+                                                onClick={() => setStoreToDelete(store)}
+                                              >
+                                                <Trash2 className="mr-2 h-4 w-4" />
+                                                Delete Store
+                                              </DropdownMenuItem>
+                                            )}
                                         </DropdownMenuContent>
                                     </DropdownMenu>
                                 </TableCell>
@@ -358,6 +384,24 @@ export default function IntegrationsPage() {
                 </AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Delete Store Confirmation */}
+        <AlertDialog open={!!storeToDelete} onOpenChange={() => setStoreToDelete(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Permanently delete store?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently delete <strong>{storeToDelete?.internalName}</strong> ({storeToDelete?.shopifyDomain}) and all its data. This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeleteStore} className="bg-destructive hover:bg-destructive/90">
+                Delete Permanently
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
         </AlertDialog>
 
     </AppLayout>
