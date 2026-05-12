@@ -1,7 +1,7 @@
 'use client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from "@/components/ui/button";
 import { MoreHorizontal, PlusCircle, ArrowLeft } from "lucide-react";
@@ -24,7 +24,6 @@ const UserCard = ({ user }: { user: User }) => {
             <CardHeader className="flex flex-row items-center justify-between">
                 <div className="flex items-center gap-4">
                     <Avatar>
-                        <AvatarImage src={`/avatars/${user.id}.png`} />
                         <AvatarFallback>{user.name.substring(0, 2).toUpperCase()}</AvatarFallback>
                     </Avatar>
                     <div className="grid gap-1">
@@ -184,7 +183,6 @@ export default function UsersPage() {
                             <TableRow key={appUser.id}>
                             <TableCell className="hidden sm:table-cell">
                                 <Avatar>
-                                    <AvatarImage src={`/avatars/${appUser.id}.png`} />
                                     <AvatarFallback>{appUser.name.substring(0, 2).toUpperCase()}</AvatarFallback>
                                 </Avatar>
                             </TableCell>
