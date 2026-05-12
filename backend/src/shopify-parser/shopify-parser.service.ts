@@ -1,6 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { TourType } from '../orders/entities/order.entity';
 
+const COUNTRY_DIAL_CODES: Record<string, string> = {
+  MA: '212', DZ: '213', TN: '216', LY: '218', EG: '20',
+  ES: '34', FR: '33', DE: '49', IT: '39', PT: '351',
+  GB: '44', NL: '31', BE: '32', CH: '41', AT: '43',
+  US: '1', CA: '1', MX: '52', BR: '55', AR: '54',
+  SA: '966', AE: '971', QA: '974', KW: '965', BH: '973',
+  TR: '90', RU: '7', IN: '91', CN: '86', JP: '81',
+  SN: '221', ML: '223', CI: '225', CM: '237', NG: '234',
+  ZA: '27', KE: '254', ET: '251', GH: '233',
+};
+
 interface ParsedLineItem {
   shopifyLineItemId: string;
   lineItemIndex: number;
@@ -59,10 +70,11 @@ export class ShopifyParserService {
     const shipping = shopifyOrder.shipping_address || {};
     const customer = shopifyOrder.customer || {};
 
+    const countryCode = billing.country_code || shipping.country_code;
     const customerName = billing.name || shipping.name || `${customer.first_name || ''} ${customer.last_name || ''}`.trim() || 'Unknown';
     const customerEmail = shopifyOrder.email || customer.email || shopifyOrder.contact_email;
-    const billingPhone = billing.phone || shipping.phone || null;
-    const customerPhone = billingPhone || customer.phone;
+    const billingPhone = (this.normalizePhone(billing.phone || shipping.phone || null, countryCode)) ?? undefined;
+    const customerPhone = billingPhone || ((this.normalizePhone(customer.phone, countryCode)) ?? undefined);
 
     // Extract payment info
     const subtotal = parseFloat(shopifyOrder.subtotal_price || '0');
@@ -277,5 +289,32 @@ export class ShopifyParserService {
   // Keep existing CSV methods for backward compatibility
   parseShopifyOrder(csvRow: any): ParsedOrder {
     return {} as ParsedOrder;
+  }
+
+  /**
+   * Normalize a phone number to E.164 format (+XXXXXXXXXXX).
+   * Uses the ISO 3166-1 alpha-2 countryCode to resolve numbers that
+   * lack an international prefix (e.g. "0612345678" → "+212612345678" for MA).
+   */
+  normalizePhone(phone: string | null | undefined, countryCode?: string): string | null {
+    if (!phone) return null;
+
+    // Strip formatting characters but keep leading +
+    let digits = phone.replace(/[\s\-().]/g, '');
+
+    // Already international
+    if (digits.startsWith('+')) return digits;
+
+    // 00-prefixed international (e.g. 00212...)
+    if (digits.startsWith('00')) return '+' + digits.slice(2);
+
+    // Resolve dial code from country
+    const dialCode = countryCode ? COUNTRY_DIAL_CODES[countryCode.toUpperCase()] : undefined;
+    if (!dialCode) return digits; // can't normalize — return as-is
+
+    // Strip leading 0 (national trunk prefix) before prepending dial code
+    if (digits.startsWith('0')) digits = digits.slice(1);
+
+    return '+' + dialCode + digits;
   }
 }

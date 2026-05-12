@@ -10,6 +10,7 @@ import { ShopifyStore } from '../shopify-stores/entities/shopify-store.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { CustomersModule } from '../shopify-customers/customers.module';
 import { EventsModule } from '../events/events.module';
+import { ShopifyParserModule } from '../shopify-parser/shopify-parser.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { EventsModule } from '../events/events.module';
     NotificationsModule,
     CustomersModule,
     EventsModule,
+    ShopifyParserModule,
   ],
   controllers: [WebhooksController],
   providers: [WebhooksService],

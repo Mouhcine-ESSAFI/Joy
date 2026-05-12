@@ -8,6 +8,7 @@ import { ShopifyStoresService } from '../shopify-stores/shopify-stores.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CustomersService } from '../shopify-customers/customers.service';
 import { EventsGateway } from '../events/events.gateway';
+import { ShopifyParserService } from '../shopify-parser/shopify-parser.service';
 
 @Injectable()
 export class WebhooksService {
@@ -23,6 +24,7 @@ export class WebhooksService {
     private notificationsService: NotificationsService,
     private customersService: CustomersService,
     private eventsGateway: EventsGateway,
+    private shopifyParserService: ShopifyParserService,
   ) {}
 
   async handleOrderCreate(payload: any, shopDomain: string): Promise<void> {
@@ -340,11 +342,13 @@ export class WebhooksService {
                          shopifyOrder.contact_email || 
                          null;
 
-    const customerPhone = shopifyOrder.billing_address?.phone ||
-                         shopifyOrder.customer?.phone || 
-                         shopifyOrder.phone || 
-                         shopifyOrder.shipping_address?.phone ||
-                         null;
+    const countryCode = shopifyOrder.billing_address?.country_code || shopifyOrder.shipping_address?.country_code;
+    const rawPhone = shopifyOrder.billing_address?.phone ||
+                     shopifyOrder.customer?.phone ||
+                     shopifyOrder.phone ||
+                     shopifyOrder.shipping_address?.phone ||
+                     null;
+    const customerPhone = this.shopifyParserService.normalizePhone(rawPhone, countryCode);
 
     const subtotal = parseFloat(shopifyOrder.subtotal_price || '0');
     const totalDiscount = parseFloat(shopifyOrder.total_discounts || '0');
