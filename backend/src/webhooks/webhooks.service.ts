@@ -211,8 +211,8 @@ export class WebhooksService {
           shopifyCustomerId: payload.customer?.id?.toString() || null,
           customerName: parsedOrder.customerName,
           customerEmail: parsedOrder.customerEmail,
-          customerPhone: parsedOrder.customerPhone,
-          billingPhone: parsedOrder.billingPhone,
+          // customerPhone is intentionally excluded — users edit it manually in the booking app
+          // and Shopify often sends null or stale values that would overwrite their edits
           tourDate: lineItem.tourDate ? lineItem.tourDate.toISOString().split('T')[0] : null,
           tourHour: lineItem.tourHour,
           pax: lineItem.pax || 1,

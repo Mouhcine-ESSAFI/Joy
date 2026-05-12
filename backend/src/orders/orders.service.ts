@@ -14,6 +14,7 @@ import { UpdateOrderDto } from './dto/update-order.dto';
 import { TourMappingsService } from '../tour-mappings/tour-mappings.service';
 import { RoomTypeRulesService } from '../room-type-rules/room-type-rules.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { EventsGateway } from '../events/events.gateway';
 
 // Allowed sort fields whitelist (security: prevent SQL injection)
 const ALLOWED_SORT_FIELDS = [
@@ -39,6 +40,7 @@ export class OrdersService {
     private tourMappingsService: TourMappingsService,
     private roomTypeRulesService: RoomTypeRulesService,
     private notificationsService: NotificationsService,
+    private eventsGateway: EventsGateway,
   ) {}
 
   async create(createOrderDto: CreateOrderDto): Promise<Order> {
@@ -289,6 +291,9 @@ export class OrdersService {
     // Check each field for changes
     const fieldsToTrack = [
       'status',
+      'customerName',
+      'customerPhone',
+      'customerEmail',
       'tourDate',
       'tourHour',
       'pax',
@@ -407,6 +412,9 @@ export class OrdersService {
         .notifyDriverTourUpdated(savedOrder.id, savedOrder.shopifyOrderNumber, savedOrder.transport!, relevantChanges)
         .catch((err) => this.logger.warn(`Driver update notif failed [${savedOrder.shopifyOrderNumber}]: ${err.message}`));
     }
+
+    // Broadcast to all connected clients so their orders lists refresh immediately
+    this.eventsGateway.emitOrdersUpdated(savedOrder.storeId);
 
     return savedOrder;
   }

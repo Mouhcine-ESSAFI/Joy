@@ -210,6 +210,9 @@ export class NotificationsService {
 
     const fieldLabels: Record<string, string> = {
       status: 'Status',
+      customerName: 'Customer name',
+      customerPhone: 'Phone',
+      customerEmail: 'Email',
       tourDate: 'Date',
       tourHour: 'Hour',
       pax: 'Passengers',

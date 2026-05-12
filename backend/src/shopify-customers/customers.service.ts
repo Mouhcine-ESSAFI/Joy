@@ -67,18 +67,35 @@ export class CustomersService {
           .groupBy('o."customerEmail"')
           .getRawMany();
 
+        // Pull phone from most recently updated order per customer
+        const phones: Array<{ email: string; phone: string }> =
+          await this.dataSource.query(
+            `SELECT DISTINCT ON ("customerEmail") "customerEmail" AS email, "customerPhone" AS phone
+             FROM orders
+             WHERE "customerEmail" = ANY($1)
+               AND "customerPhone" IS NOT NULL
+             ORDER BY "customerEmail", "updatedAt" DESC`,
+            [emails],
+          );
+
         const statsMap = new Map(
           stats.map((s) => [s.customerEmail.toLowerCase(), s]),
         );
+        const phoneMap = new Map(
+          phones.map((p) => [p.email.toLowerCase(), p.phone]),
+        );
 
         for (const customer of data) {
-          const s = customer.email
-            ? statsMap.get(customer.email.toLowerCase())
-            : undefined;
+          const key = customer.email?.toLowerCase();
+          const s = key ? statsMap.get(key) : undefined;
           customer.totalOrders = s ? parseInt(s.orderCount, 10) : 0;
           customer.totalSpent = s
             ? parseFloat(s.totalSpent).toFixed(2)
             : '0.00';
+          // Override phone from orders (reflects manual edits on order detail)
+          if (key && phoneMap.has(key)) {
+            customer.phone = phoneMap.get(key);
+          }
         }
       }
     }

@@ -385,17 +385,17 @@ function TourCard({
           </div>
         )}
 
-        {(order.billingPhone || order.customerPhone) && (
+        {order.customerPhone && (
           <div className="pt-1.5" onClick={e => e.stopPropagation()}>
             <a
-              href={buildWhatsAppUrl((order.billingPhone || order.customerPhone) ?? '', order.customerName, order.tourDate, order.tourCode)}
+              href={buildWhatsAppUrl(order.customerPhone, order.customerName, order.tourDate, order.tourCode)}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-center gap-2 w-full bg-green-500 hover:bg-green-600 active:bg-green-700 text-white text-xs font-medium px-3 py-2 rounded-lg transition-colors"
               onClick={e => e.stopPropagation()}
             >
               <MessageCircle className="h-3.5 w-3.5 shrink-0" />
-              {order.billingPhone || order.customerPhone}
+              {order.customerPhone}
             </a>
           </div>
         )}

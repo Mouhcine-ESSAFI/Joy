@@ -57,10 +57,10 @@ export default function CustomerCell({ order, allOrders }: CustomerCellProps) {
                         <Mail className="h-4 w-4" />
                         <span>{order.customerEmail}</span>
                     </div>
-                    {(order.billingPhone || order.customerPhone) && (
+                    {order.customerPhone && (
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <Phone className="h-4 w-4" />
-                            <span>{order.billingPhone || order.customerPhone}</span>
+                            <span>{order.customerPhone}</span>
                         </div>
                     )}
                 </div>

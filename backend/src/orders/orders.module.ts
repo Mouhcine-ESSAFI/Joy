@@ -8,6 +8,7 @@ import { OrderHistory } from './entities/order-history.entity';
 import { TourMappingsModule } from '../tour-mappings/tour-mappings.module';
 import { RoomTypeRulesModule } from '../room-type-rules/room-type-rules.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { EventsModule } from '../events/events.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     TourMappingsModule,
     RoomTypeRulesModule,
     NotificationsModule,
+    EventsModule,
   ],
   controllers: [OrdersController],
   providers: [OrdersService, OrdersScheduler],

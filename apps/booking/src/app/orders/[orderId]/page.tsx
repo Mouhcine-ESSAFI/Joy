@@ -229,6 +229,7 @@ export default function OrderDetailsPage() {
         description: `Order ${order?.shopifyOrderNumber} saved.`,
       });
       form.reset(values);
+      router.refresh();
     } catch (e: any) {
       toast({
         title: 'Update Failed',

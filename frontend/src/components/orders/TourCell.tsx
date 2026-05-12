@@ -55,7 +55,7 @@ export default function TourCell({ order }: TourCellProps) {
                  {order.accommodationName && (
                     <div className="flex items-center gap-2">
                         <Building className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-medium">Accom:</span>
+                        <span className="font-medium">Host:</span>
                         <span>{order.accommodationName}</span>
                     </div>
                  )}
