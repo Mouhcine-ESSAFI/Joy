@@ -323,6 +323,25 @@ export class OrdersService {
 
     // Apply updates
     Object.assign(order, updateOrderDto);
+
+    // If transport already set and driver-relevant fields changed (not a transport assignment),
+    // append those changes to driverPendingChanges so driver can confirm them.
+    const DRIVER_RELEVANT_FIELDS = ['tourDate', 'tourHour', 'pax', 'campType', 'roomType', 'pickupLocation', 'accommodationName', 'note'];
+    const transportChanged = changes.some(c => c.field === 'transport');
+    const driverRelevantChanges = changes.filter(c => DRIVER_RELEVANT_FIELDS.includes(c.field));
+    if (order.transport && !transportChanged && driverRelevantChanges.length > 0) {
+      const existing = order.driverPendingChanges ?? [];
+      order.driverPendingChanges = [
+        ...existing,
+        ...driverRelevantChanges.map(c => ({
+          field: c.field,
+          oldValue: String(c.oldValue ?? ''),
+          newValue: String(c.newValue ?? ''),
+          changedAt: new Date().toISOString(),
+        })),
+      ];
+    }
+
     const savedOrder = await this.ordersRepository.save(order);
 
     // Create history entries
@@ -378,36 +397,21 @@ export class OrdersService {
       }
     }
 
-    // Notify driver whenever their transport code is involved:
-    // - Transport just assigned/changed → "Tour Assignment" notification
-    // - Any other field changed on an order that already has transport → "Tour Updated" notification
-    const transportChanged = changes.some(c => c.field === 'transport');
+    // Notify driver when transport is assigned/changed only (not for unassign, not for field updates)
     const relevantChanges = changes.filter(c => c.field !== 'driverId');
+    const transportChange = changes.find(c => c.field === 'transport');
 
     this.logger.log(
       `Order ${savedOrder.shopifyOrderNumber}: transport="${savedOrder.transport}" transportChanged=${transportChanged} changes=[${relevantChanges.map(c => c.field).join(',')}]`,
     );
 
-    const transportChange = changes.find(c => c.field === 'transport');
-
-    if (transportChanged && !savedOrder.transport && transportChange?.oldValue) {
-      // Transport removed — notify the OLD driver their tour was unassigned
-      this.notificationsService
-        .notifyDriverTourRemoved(savedOrder.id, savedOrder.shopifyOrderNumber, transportChange.oldValue)
-        .catch((err) => this.logger.warn(`Driver removal notif failed [${savedOrder.shopifyOrderNumber}]: ${err.message}`));
-    } else if (savedOrder.transport && transportChanged) {
+    if (savedOrder.transport && transportChanged) {
       // Transport assigned or changed to a new code — notify new driver
       this.notificationsService
         .notifyDriverTourReady(savedOrder.id, savedOrder.shopifyOrderNumber, savedOrder.transport!, savedOrder.tourDate)
         .catch((err) => this.logger.warn(`Driver assignment notif failed [${savedOrder.shopifyOrderNumber}]: ${err.message}`));
-      // If transport changed FROM another code, also notify the old driver they were removed
-      if (transportChange?.oldValue) {
-        this.notificationsService
-          .notifyDriverTourRemoved(savedOrder.id, savedOrder.shopifyOrderNumber, transportChange.oldValue)
-          .catch((err) => this.logger.warn(`Driver removal notif failed [${savedOrder.shopifyOrderNumber}]: ${err.message}`));
-      }
     } else if (savedOrder.transport && relevantChanges.length > 0) {
-      // Any other field changed on an already-assigned order — notify driver with details
+      // Field changed on already-assigned order — push update details to driver
       this.notificationsService
         .notifyDriverTourUpdated(savedOrder.id, savedOrder.shopifyOrderNumber, savedOrder.transport!, relevantChanges)
         .catch((err) => this.logger.warn(`Driver update notif failed [${savedOrder.shopifyOrderNumber}]: ${err.message}`));
@@ -451,6 +455,31 @@ export class OrdersService {
       relations: ['user'],
       order: { createdAt: 'DESC' },
     });
+  }
+
+  async driverConfirm(id: string, userId: string): Promise<Order> {
+    const order = await this.findOne(id);
+
+    const confirmedChanges = order.driverPendingChanges ?? [];
+    order.driverPendingChanges = null;
+
+    // Set status based on whether tour date has passed
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tourDate = order.tourDate ? new Date(order.tourDate + 'T00:00:00') : null;
+    order.status = (tourDate && tourDate < today) ? OrderStatus.PROCESSED : OrderStatus.COMPLETED;
+
+    const savedOrder = await this.ordersRepository.save(order);
+
+    await this.historyRepository.save({
+      orderId: order.id,
+      type: OrderHistoryType.DRIVER_CONFIRMED,
+      userId,
+      metadata: { confirmedChanges },
+    });
+
+    this.eventsGateway.emitOrdersUpdated(savedOrder.storeId);
+    return savedOrder;
   }
 
   // ⭐ NEW: Track supplement added (call this from supplements service)

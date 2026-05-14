@@ -79,6 +79,7 @@ export enum OrderStatus {
   UPDATED = 'Updated',
   VALIDATE = 'Validate',
   COMPLETED = 'Completed',
+  PROCESSED = 'Processed',
   CANCELED = 'Canceled',
 }
 
@@ -152,6 +153,9 @@ export interface Order {
   // Logistics
   transport: string | null;
   note: string | null;
+  comment: string | null;
+  language: string | null;
+  driverPendingChanges: Array<{ field: string; oldValue: string; newValue: string; changedAt: string }> | null;
   
   // Driver Assignment
   driverId: string | null; // UUID
@@ -230,6 +234,8 @@ export interface UpdateOrderDto {
   accommodationName?: string;
   transport?: string;
   note?: string;
+  comment?: string;
+  language?: string;
   driverId?: string;
   driverNotes?: string;
 }
@@ -243,6 +249,7 @@ export enum OrderHistoryType {
   NOTE_ADDED = 'note_added',
   DRIVER_ASSIGNED = 'driver_assigned',
   DRIVER_UNASSIGNED = 'driver_unassigned',
+  DRIVER_CONFIRMED = 'driver_confirmed',
   FIELD_UPDATED = 'field_updated',
   SUPPLEMENT_ADDED = 'supplement_added',
   SUPPLEMENT_REMOVED = 'supplement_removed',
@@ -297,6 +304,7 @@ export interface Supplement {
   orderId: string; // UUID
   label: string;
   amount: string; // Decimal as string "50.00"
+  visibleToDriver: boolean;
   createdBy: string; // UUID
   creator?: {
     id: string;
@@ -309,6 +317,7 @@ export interface Supplement {
 export interface CreateSupplementDto {
   label: string;
   amount: number;
+  visibleToDriver?: boolean;
   createdById?: string;
 }
 

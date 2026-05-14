@@ -32,7 +32,7 @@ import {
   DropdownMenuItem,
 } from '@/components/ui/dropdown-menu';
 
-import { PlusCircle, ChevronDown, Download, Clock, Users, MapPin, Calendar as CalendarIcon, Search, AlertCircle, TrendingUp, ChevronUp } from 'lucide-react';
+import { PlusCircle, ChevronDown, Download, Clock, Users, MapPin, Calendar as CalendarIcon, Search, AlertCircle, TrendingUp, ChevronUp, X } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 
 import type { Order, ShopifyStore, TransportType, OrderStatus, TourType } from '@/lib/types';
@@ -416,7 +416,8 @@ export default function OrdersClient() {
     Updated: 'bg-yellow-500',
     Validate: 'bg-purple-500',
     Completed: 'bg-green-500',
-    'Canceled': 'bg-red-500',
+    Processed: 'bg-blue-500',
+    Canceled: 'bg-red-500',
   };
 
   const columns: ColumnDef<Order>[] = [
@@ -841,6 +842,36 @@ export default function OrdersClient() {
 
         <CardContent>
           {/* Row 1 — status tabs + filters */}
+          {(() => {
+            const hasActiveFilters =
+              filters.dateRange !== undefined ||
+              filters.storeId !== 'all' ||
+              filters.tourType !== 'all' ||
+              filters.transport !== 'all' ||
+              statusTab !== 'all' ||
+              search.trim() !== '';
+
+            function clearFilters() {
+              setFilters({ dateRange: undefined, storeId: 'all', tourType: 'all', transport: 'all' });
+              setStatusTab('all');
+              setSearch('');
+              setPage(1);
+            }
+
+            return hasActiveFilters ? (
+              <div className="flex justify-end mb-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs text-muted-foreground gap-1"
+                  onClick={clearFilters}
+                >
+                  <X className="h-3 w-3" />
+                  Clear filters
+                </Button>
+              </div>
+            ) : null;
+          })()}
           <div className="flex flex-wrap gap-2 mb-2">
             <div className="overflow-x-auto shrink-0">
               <TabsList>

@@ -1,10 +1,12 @@
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
+import { useState } from 'react';
 import {
   ArrowLeft, Clock, Users, MapPin, Tent, BedDouble, Building2,
   FileText, CalendarDays, Phone, MessageCircle, CreditCard,
-  StickyNote, ListPlus, Timer, Navigation, PlaneLanding, XCircle,
+  StickyNote, ListPlus, Timer, Navigation, PlaneLanding, XCircle, Globe,
+  CheckCheck, ArrowRight,
 } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
 import { useOrder, useSupplements } from '@/lib/hooks';
@@ -13,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
+import api from '@/lib/api-client';
 
 function buildWhatsAppUrl(phone: string, customerName: string, tourDate: string | null) {
   const clean = phone.replace(/[\s\-().+]/g, '').replace(/^00/, '+').replace(/^0/, '+212');
@@ -55,12 +58,27 @@ function stripPrice(value: string | null | undefined): string | null {
   return value.replace(/\s*\([^)]*[€$£¥].*?\)/g, '').trim() || null;
 }
 
+const FIELD_LABELS: Record<string, string> = {
+  tourDate: 'Tour Date',
+  tourHour: 'Tour Hour',
+  pax: 'Passengers',
+  campType: 'Camp Type',
+  roomType: 'Room Type',
+  pickupLocation: 'Pickup Location',
+  accommodationName: 'Host Name',
+  note: 'Note',
+};
+
 export default function DriverOrderDetailPage() {
   const { orderId } = useParams<{ orderId: string }>();
   const router = useRouter();
-  const { order, loading: orderLoading } = useOrder(orderId);
+  const { order: fetchedOrder, loading: orderLoading } = useOrder(orderId);
   const { supplements, loading: supplementsLoading } = useSupplements(orderId);
   const loading = orderLoading || supplementsLoading;
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [localOrder, setLocalOrder] = useState<typeof fetchedOrder>(null);
+
+  const order = localOrder ?? fetchedOrder;
 
   if (loading) {
     return (
@@ -90,12 +108,26 @@ export default function DriverOrderDetailPage() {
   }
 
   const isCanceled = order.status === 'Canceled';
+  const hasPendingChanges = Array.isArray(order.driverPendingChanges) && order.driverPendingChanges.length > 0;
+
+  async function handleConfirmUpdates() {
+    setIsConfirming(true);
+    try {
+      const updated = await api.orders.driverConfirm(orderId);
+      setLocalOrder(updated);
+    } catch {
+      // silently ignore — driver can retry
+    } finally {
+      setIsConfirming(false);
+    }
+  }
 
   const tourDate = order.tourDate
     ? format(new Date(order.tourDate + 'T00:00:00'), 'EEEE, dd MMM yyyy')
     : null;
 
-  const totalSupplements = supplements.reduce((sum, s) => sum + Number(s.amount || 0), 0);
+  const visibleSupplements = supplements.filter((s) => s.visibleToDriver);
+  const totalSupplements = visibleSupplements.reduce((sum, s) => sum + Number(s.amount || 0), 0);
   const balanceDue = Number(order.lineItemPrice || 0) + totalSupplements - Number(order.depositAmount || 0);
 
   const duration = getProp(order.lineItemProperties, order.shopifyMetadata, 'Duration', 'duration');
@@ -115,11 +147,48 @@ export default function DriverOrderDetailPage() {
           </Button>
           <div className="flex-1 min-w-0 flex items-center justify-between gap-2">
             <Badge variant="outline" className="text-xs font-mono">{order.shopifyOrderNumber}</Badge>
-            {order.tourType && (
-              <Badge variant="secondary" className="text-xs shrink-0">{order.tourType}</Badge>
-            )}
+            <div className="flex items-center gap-1.5 shrink-0">
+              {hasPendingChanges && (
+                <Badge className="text-xs bg-amber-500 text-white">Updated</Badge>
+              )}
+              {order.tourType && (
+                <Badge variant="secondary" className="text-xs">{order.tourType}</Badge>
+              )}
+            </div>
           </div>
         </div>
+
+        {/* Pending updates — driver must confirm */}
+        {hasPendingChanges && (
+          <Card className="border-amber-300 bg-amber-50/70">
+            <CardHeader className="pb-2 pt-4">
+              <CardTitle className="text-xs font-semibold text-amber-800 uppercase tracking-wide flex items-center gap-2">
+                <ArrowRight className="h-3.5 w-3.5" />
+                Tour Updated — Please Review Changes
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {(order.driverPendingChanges ?? []).map((c, i) => (
+                <div key={i} className="text-sm flex flex-col gap-0.5">
+                  <span className="text-xs font-medium text-amber-900">{FIELD_LABELS[c.field] ?? c.field}</span>
+                  <div className="flex items-center gap-2 text-amber-800">
+                    <span className="line-through opacity-60">{c.oldValue || '—'}</span>
+                    <ArrowRight className="h-3 w-3 shrink-0" />
+                    <span className="font-semibold">{c.newValue || '—'}</span>
+                  </div>
+                </div>
+              ))}
+              <Button
+                className="w-full mt-3 bg-amber-600 hover:bg-amber-700 text-white gap-2"
+                disabled={isConfirming}
+                onClick={handleConfirmUpdates}
+              >
+                <CheckCheck className="h-4 w-4" />
+                {isConfirming ? 'Confirming…' : 'OK — I have seen the changes'}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
         {/* 1 — Customer */}
         <Card>
@@ -144,6 +213,12 @@ export default function DriverOrderDetailPage() {
                   <MessageCircle className="h-3.5 w-3.5" />
                   WhatsApp
                 </a>
+              </div>
+            )}
+            {(order.language || order.storeId) && (
+              <div className="flex items-center gap-3">
+                <Globe className="h-4 w-4 text-muted-foreground shrink-0" />
+                <span className="text-sm">{order.language || order.storeId}</span>
               </div>
             )}
           </CardContent>
@@ -171,9 +246,9 @@ export default function DriverOrderDetailPage() {
               <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Balance Due</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              {supplements.length > 0 && (
+              {visibleSupplements.length > 0 && (
                 <div className="space-y-1 pb-2 border-b">
-                  {supplements.map((s) => (
+                  {visibleSupplements.map((s) => (
                     <div key={s.id} className="flex items-center gap-2 text-sm text-muted-foreground">
                       <ListPlus className="h-3.5 w-3.5 shrink-0" />
                       <span>{s.label}</span>

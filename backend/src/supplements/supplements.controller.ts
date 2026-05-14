@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Body,
   Param,
   Delete,
@@ -45,6 +46,15 @@ export class SupplementsController {
   @Roles('Owner', 'Admin', 'Travel Agent', 'Finance', 'Driver')
   findByOrder(@Param('orderId') orderId: string) {
     return this.supplementsService.findByOrder(orderId);
+  }
+
+  @Patch(':id/visibility')
+  @Roles('Owner', 'Admin', 'Travel Agent')
+  updateVisibility(
+    @Param('id') id: string,
+    @Body() body: { visibleToDriver: boolean },
+  ) {
+    return this.supplementsService.updateVisibility(id, body.visibleToDriver);
   }
 
   @Delete(':id')

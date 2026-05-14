@@ -263,6 +263,7 @@ export class SyncService implements OnModuleInit {
 
               tags: parsedOrder.tags,
               note: parsedOrder.note,
+              language: store.internalName,
 
               lineItemProperties: { raw: lineItem.properties },
               shopifyMetadata: { productType: lineItem.productType, metafields: productMetafields },
@@ -284,6 +285,82 @@ export class SyncService implements OnModuleInit {
       this.logger.error(`❌ Error fetching orders: ${error.message}`);
       throw error;
     }
+  }
+
+  /**
+   * Backfill phone numbers for existing orders that are missing the country prefix.
+   * Only updates orders where customerPhone does not already start with '+'.
+   * Safe to run multiple times (idempotent).
+   */
+  async fixPhoneNumbers(): Promise<{ updated: number }> {
+    this.logger.log('📞 Starting phone number backfill...');
+    const activeStores = await this.shopifyStoresService.findActiveStores();
+    let totalUpdated = 0;
+
+    for (const store of activeStores) {
+      try {
+        const baseUrl = `https://${store.shopifyDomain}/admin/api/${store.apiVersion}`;
+        const headers = { 'X-Shopify-Access-Token': store.accessToken };
+
+        let nextPageUrl: string | null = null;
+        let isFirstPage = true;
+
+        while (isFirstPage || nextPageUrl) {
+          const url = isFirstPage
+            ? `${baseUrl}/orders.json?status=any&limit=250&fields=id,customer,billing_address,shipping_address`
+            : nextPageUrl!;
+          isFirstPage = false;
+
+          const response = await fetch(url, { headers });
+          if (!response.ok) break;
+
+          const linkHeader = response.headers.get('link') || '';
+          const nextMatch = linkHeader.match(/<([^>]+)>;\s*rel="next"/);
+          nextPageUrl = nextMatch ? nextMatch[1] : null;
+
+          const { orders } = await response.json();
+          if (!orders?.length) break;
+
+          for (const shopifyOrder of orders) {
+            const countryCode =
+              shopifyOrder.billing_address?.country_code ||
+              shopifyOrder.shipping_address?.country_code;
+
+            const normalizedPhone =
+              this.shopifyParserService.normalizePhone(shopifyOrder.customer?.phone, countryCode) ??
+              this.shopifyParserService.normalizePhone(
+                shopifyOrder.billing_address?.phone ||
+                shopifyOrder.shipping_address?.phone ||
+                null,
+                countryCode,
+              );
+
+            if (!normalizedPhone) continue;
+
+            const result = await this.ordersRepository
+              .createQueryBuilder()
+              .update()
+              .set({ customerPhone: normalizedPhone })
+              .where('shopifyOrderId = :id AND (customerPhone IS NULL OR customerPhone NOT LIKE :prefix)', {
+                id: shopifyOrder.id.toString(),
+                prefix: '+%',
+              })
+              .execute();
+
+            totalUpdated += result.affected ?? 0;
+          }
+
+          await new Promise((r) => setTimeout(r, 300));
+        }
+
+        this.logger.log(`✅ Phone backfill done for ${store.internalName}`);
+      } catch (e: any) {
+        this.logger.error(`❌ Phone backfill failed for ${store.internalName}: ${e.message}`);
+      }
+    }
+
+    this.logger.log(`📞 Phone backfill complete. Updated ${totalUpdated} order(s).`);
+    return { updated: totalUpdated };
   }
 
   private async fetchProductMetafields(store: any, productId: string): Promise<any[]> {

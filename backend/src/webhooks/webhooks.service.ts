@@ -105,6 +105,7 @@ export class WebhooksService {
 
           tags: parsedOrder.tags,
           note: parsedOrder.note,
+          language: store.internalName,
 
           lineItemProperties: { raw: lineItem.properties },
           shopifyMetadata: { productType: lineItem.productType, metafields: productMetafields },

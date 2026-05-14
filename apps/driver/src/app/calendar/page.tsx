@@ -9,9 +9,12 @@ import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { Clock, Users, MapPin, MessageCircle, CalendarDays, ChevronRight } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Clock, Users, MapPin, MessageCircle, CalendarDays, ChevronRight, Download } from 'lucide-react';
 import type { Order } from '@/lib/types';
 
 function buildWhatsAppUrl(phone: string, customerName: string, tourDate: string | null, tourCode: string | null) {
@@ -32,11 +35,18 @@ function getStatusColor(status?: Order['status']) {
   }
 }
 
+const STATUS_FILTERS = ['All', 'Validate', 'Completed', 'Processed', 'Canceled'] as const;
+type StatusFilter = typeof STATUS_FILTERS[number];
+
 export default function DriverCalendarPage() {
   const { orders, loading: isLoading } = useOrders({ pageSize: 1000 });
   const router = useRouter();
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('All');
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportFrom, setExportFrom] = useState('');
+  const [exportTo, setExportTo] = useState('');
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const tomorrowStr = format(addDays(new Date(), 1), 'yyyy-MM-dd');
@@ -77,12 +87,54 @@ export default function DriverCalendarPage() {
   const sortedOrders = useMemo(() => {
     return [...orders]
       .filter(o => o.tourDate)
-      .sort((a, b) => {
-        if (a.tourDate! < b.tourDate!) return -1;
-        if (a.tourDate! > b.tourDate!) return 1;
-        return 0;
-      });
+      .sort((a, b) => (a.tourDate! < b.tourDate! ? -1 : a.tourDate! > b.tourDate! ? 1 : 0));
   }, [orders]);
+
+  // Apply status filter
+  const filteredOrders = useMemo(() => {
+    if (statusFilter === 'All') return sortedOrders;
+    return sortedOrders.filter(o => o.status === statusFilter);
+  }, [sortedOrders, statusFilter]);
+
+  function exportCSV() {
+    const from = exportFrom ? new Date(exportFrom + 'T00:00:00') : null;
+    const to = exportTo ? new Date(exportTo + 'T23:59:59') : null;
+
+    const rows = filteredOrders.filter(o => {
+      if (!o.tourDate) return false;
+      const d = new Date(o.tourDate + 'T00:00:00');
+      if (from && d < from) return false;
+      if (to && d > to) return false;
+      return true;
+    });
+
+    const header = ['Order #', 'Customer', 'Tour Date', 'Tour Hour', 'PAX', 'Pickup Location', 'Status', 'Phone', 'Tour Code', 'Tour Type'];
+    const data = rows.map(o => [
+      o.shopifyOrderNumber,
+      o.customerName,
+      o.tourDate ?? '',
+      o.tourHour ?? '',
+      String(o.pax),
+      o.pickupLocation ?? '',
+      o.status,
+      o.customerPhone ?? '',
+      o.tourCode ?? '',
+      o.tourType ?? '',
+    ]);
+    const bom = '﻿';
+    const csv = bom + [header, ...data]
+      .map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `tours${exportFrom ? `-${exportFrom}` : ''}${exportTo ? `-to-${exportTo}` : ''}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setExportOpen(false);
+  }
 
   // Auto-open today's tours once loaded
   useEffect(() => {
@@ -206,21 +258,55 @@ export default function DriverCalendarPage() {
         {/* All assigned tours list */}
         <Card>
           <CardHeader className="pb-2 pt-4">
-            <CardTitle className="text-base">All Tours</CardTitle>
-            {!isLoading && (
-              <CardDescription>{sortedOrders.length} assigned tours</CardDescription>
-            )}
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <CardTitle className="text-base">All Tours</CardTitle>
+                {!isLoading && (
+                  <CardDescription className="mt-0.5">
+                    {filteredOrders.length}{statusFilter !== 'All' ? ` ${statusFilter}` : ''} tour{filteredOrders.length !== 1 ? 's' : ''}
+                  </CardDescription>
+                )}
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="shrink-0 gap-1.5 text-xs"
+                onClick={() => setExportOpen(true)}
+              >
+                <Download className="h-3.5 w-3.5" />
+                Export
+              </Button>
+            </div>
+
+            {/* Status filter chips */}
+            <div className="flex gap-1.5 flex-wrap mt-2 pt-2 border-t">
+              {STATUS_FILTERS.map(s => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setStatusFilter(s)}
+                  className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                    statusFilter === s
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                  }`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
           </CardHeader>
+
           <CardContent className="px-0 pb-2">
             {isLoading ? (
               <div className="space-y-3 px-4">
                 {[1, 2, 3].map(i => <Skeleton key={i} className="h-16 w-full rounded-md" />)}
               </div>
-            ) : sortedOrders.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-6">No tours assigned.</p>
+            ) : filteredOrders.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-6">No tours found.</p>
             ) : (
               <div className="divide-y">
-                {sortedOrders.map((order) => {
+                {filteredOrders.map((order) => {
                   const isPast = order.tourDate
                     ? isBefore(new Date(order.tourDate + 'T00:00:00'), today)
                     : false;
@@ -231,7 +317,6 @@ export default function DriverCalendarPage() {
                       className={`w-full text-left px-4 py-3 flex items-center gap-3 transition-colors active:bg-muted/60 hover:bg-muted/40 ${isPast ? 'opacity-50' : ''}`}
                       onClick={() => router.push(`/orders/${order.id}`)}
                     >
-                      {/* Date column */}
                       <div className="shrink-0 w-14 text-center">
                         <CalendarDays className="h-4 w-4 text-muted-foreground mx-auto mb-0.5" />
                         {order.tourDate && (
@@ -246,7 +331,6 @@ export default function DriverCalendarPage() {
                         )}
                       </div>
 
-                      {/* Main info */}
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold truncate">{order.customerName}</p>
                         <div className="flex items-center gap-2 mt-0.5 flex-wrap">
@@ -261,7 +345,6 @@ export default function DriverCalendarPage() {
                         </div>
                       </div>
 
-                      {/* Status + chevron */}
                       <div className="shrink-0 flex flex-col items-end gap-1">
                         <Badge className={`text-[10px] border-0 px-1.5 py-px ${getStatusColor(order.status)}`}>
                           {order.status}
@@ -276,6 +359,45 @@ export default function DriverCalendarPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Export dialog */}
+      <Dialog open={exportOpen} onOpenChange={setExportOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Export Tours</DialogTitle>
+            <DialogDescription>
+              Select a date range to download.{statusFilter !== 'All' ? ` Filtered to: ${statusFilter}.` : ''}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="export-from">From</Label>
+              <Input
+                id="export-from"
+                type="date"
+                value={exportFrom}
+                onChange={e => setExportFrom(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="export-to">To</Label>
+              <Input
+                id="export-to"
+                type="date"
+                value={exportTo}
+                onChange={e => setExportTo(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setExportOpen(false)}>Cancel</Button>
+            <Button className="gap-1.5" onClick={exportCSV}>
+              <Download className="h-4 w-4" />
+              Download CSV
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Bottom sheet */}
       <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>

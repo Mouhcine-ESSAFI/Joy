@@ -262,9 +262,12 @@ import { isApiError } from './types';
   
     addNote: (id: string, note: string) =>
       client.post<OrderHistory>(`/orders/${id}/notes`, { note }),
-  
+
     getHistory: (id: string) =>
       client.get<OrderHistory[]>(`/orders/${id}/history`),
+
+    driverConfirm: (id: string) =>
+      client.post<Order>(`/orders/${id}/driver-confirm`),
   };
   
   // ============================================
@@ -274,10 +277,13 @@ import { isApiError } from './types';
   export const supplementsApi = {
     listByOrder: (orderId: string) =>
       client.get<Supplement[]>(`/supplements/orders/${orderId}`),
-  
+
     create: (orderId: string, data: CreateSupplementDto) =>
       client.post<Supplement>(`/supplements/orders/${orderId}`, data),
-  
+
+    updateVisibility: (id: string, visibleToDriver: boolean) =>
+      client.patch<Supplement>(`/supplements/${id}/visibility`, { visibleToDriver }),
+
     delete: (id: string) =>
       client.delete<{ message: string }>(`/supplements/${id}`),
   };
@@ -428,6 +434,11 @@ import { isApiError } from './types';
   // Maintenance API (Owner only)
   // ============================================
 
+  export const syncApi = {
+    run: () => client.post<{ success: boolean; message: string }>('/sync/run'),
+    fixPhones: () => client.post<{ updated: number }>('/sync/fix-phones'),
+  };
+
   export const maintenanceApi = {
     resetOrders: () =>
       client.post<{ success: boolean; message: string; deletedAt: string }>('/maintenance/reset-orders'),
@@ -464,5 +475,6 @@ import { isApiError } from './types';
     customers: customersApi,
     notifications: notificationsApi,
     maintenance: maintenanceApi,
+    sync: syncApi,
   };
   export default api;

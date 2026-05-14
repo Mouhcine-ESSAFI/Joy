@@ -15,6 +15,7 @@ export enum OrderHistoryType {
   NOTE_ADDED = 'note_added',
   DRIVER_ASSIGNED = 'driver_assigned',
   DRIVER_UNASSIGNED = 'driver_unassigned',
+  DRIVER_CONFIRMED = 'driver_confirmed',
   FIELD_UPDATED = 'field_updated',
   SUPPLEMENT_ADDED = 'supplement_added',
   SUPPLEMENT_REMOVED = 'supplement_removed',

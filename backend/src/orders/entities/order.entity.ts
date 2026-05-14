@@ -20,6 +20,7 @@ export enum OrderStatus {
   UPDATED = 'Updated',
   VALIDATE = 'Validate',
   COMPLETED = 'Completed',
+  PROCESSED = 'Processed',
   CANCELED = 'Canceled',
 }
 
@@ -186,6 +187,15 @@ export class Order {
 
   @Column({ type: 'text', nullable: true })
   note: string;
+
+  @Column({ type: 'text', nullable: true })
+  comment: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  language: string;
+
+  @Column({ type: 'jsonb', nullable: true })
+  driverPendingChanges: Array<{ field: string; oldValue: string; newValue: string; changedAt: string }> | null;
 
   // ==================== Driver Assignment ====================
   @Column({ type: 'uuid', nullable: true })

@@ -27,14 +27,14 @@ export class AuthService {
   private signAccessToken(payload: any) {
     return this.jwtService.sign(payload, {
       secret: this.configService.get<string>('JWT_SECRET')!,
-      expiresIn: this.configService.get<string>('JWT_ACCESS_EXPIRES_IN') || '15m',
+      expiresIn: this.configService.get<string>('JWT_ACCESS_EXPIRES_IN') || '2h',
     } as any);
   }
 
   private signRefreshToken(payload: any) {
     return this.jwtService.sign(payload, {
       secret: this.configService.get<string>('JWT_REFRESH_SECRET')!,
-      expiresIn: this.configService.get<string>('JWT_REFRESH_EXPIRES_IN') || '7d',
+      expiresIn: this.configService.get<string>('JWT_REFRESH_EXPIRES_IN') || '2h',
     } as any);
   }
 

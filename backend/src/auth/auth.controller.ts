@@ -44,12 +44,12 @@ export class AuthController {
 
     res.cookie('access_token', accessToken, {
       ...this.cookieOptions(),
-      maxAge: 15 * 60 * 1000, // 15m
+      maxAge: 2 * 60 * 60 * 1000, // 2h
     });
 
     res.cookie('refresh_token', refreshToken, {
       ...this.cookieOptions(),
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7d
+      maxAge: 2 * 60 * 60 * 1000, // 2h
     });
 
     // return user only (no tokens needed in body)

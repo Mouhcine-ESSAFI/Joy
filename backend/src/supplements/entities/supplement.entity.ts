@@ -27,6 +27,9 @@ export class Supplement {
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   amount: number;
 
+  @Column({ type: 'boolean', default: false })
+  visibleToDriver: boolean;
+
   @Column({ type: 'uuid' })
   createdBy: string;
 

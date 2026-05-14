@@ -43,6 +43,7 @@ export class SupplementsService {
       orderId,
       label: createDto.label,
       amount: createDto.amount,
+      visibleToDriver: createDto.visibleToDriver ?? false,
       createdBy: userId,
     });
     
@@ -74,6 +75,14 @@ export class SupplementsService {
       relations: ['creator'],
       order: { createdAt: 'DESC' },
     });
+  }
+
+  async updateVisibility(id: string, visibleToDriver: boolean) {
+    validateUUID(id, 'supplement ID');
+    const supplement = await this.supplementsRepository.findOne({ where: { id } });
+    if (!supplement) throw new NotFoundException('Supplement not found');
+    supplement.visibleToDriver = visibleToDriver;
+    return this.supplementsRepository.save(supplement);
   }
 
   async remove(id: string, userId: string) {

@@ -1,6 +1,7 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { SyncService } from './sync.service';
+import { SyncController } from './sync.controller';
 import { ShopifyStoresModule } from '../shopify-stores/shopify-stores.module';
 import { OrdersModule } from '../orders/orders.module';
 import { ShopifyParserModule } from '../shopify-parser/shopify-parser.module';
@@ -15,6 +16,7 @@ import { CustomersModule } from '../shopify-customers/customers.module';
     ShopifyParserModule,
     CustomersModule,
   ],
+  controllers: [SyncController],
   providers: [
     SyncService,
     // ⭐ ADD THIS: Provide SyncService with string token

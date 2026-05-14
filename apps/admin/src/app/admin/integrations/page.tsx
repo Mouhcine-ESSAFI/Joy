@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, PlusCircle, ArrowLeft, Copy, Check, Webhook, Trash2 } from "lucide-react";
+import { MoreHorizontal, PlusCircle, ArrowLeft, Copy, Check, Webhook, Trash2, RefreshCw, Phone } from "lucide-react";
 import AppLayout from "@/components/layout/AppLayout";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -128,6 +128,33 @@ export default function IntegrationsPage() {
     }
   }
 
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [isFixingPhones, setIsFixingPhones] = useState(false);
+
+  const handleSync = async () => {
+    setIsSyncing(true);
+    try {
+      await api.sync.run();
+      toast({ title: 'Sync started', description: 'Fetching new orders from Shopify in the background.' });
+    } catch (e: any) {
+      toast({ variant: 'destructive', title: 'Sync failed', description: e.message });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleFixPhones = async () => {
+    setIsFixingPhones(true);
+    try {
+      const result = await api.sync.fixPhones();
+      toast({ title: 'Phone numbers fixed', description: `Updated ${result.updated} order(s) with correct country code.` });
+    } catch (e: any) {
+      toast({ variant: 'destructive', title: 'Fix failed', description: e.message });
+    } finally {
+      setIsFixingPhones(false);
+    }
+  };
+
   const handleDeleteStore = async () => {
     if (!storeToDelete) return;
     try {
@@ -168,10 +195,24 @@ export default function IntegrationsPage() {
                             <CardDescription>Connect and manage your Shopify stores.</CardDescription>
                         </div>
                     </div>
-                    <Button size="sm" className="gap-1" onClick={() => setIsAddDialogOpen(true)}>
-                        <PlusCircle className="mr-2 h-4 w-4" />
-                        Connect New Store
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        {isOwner && (
+                          <>
+                            <Button size="sm" variant="outline" className="gap-1" onClick={handleFixPhones} disabled={isFixingPhones}>
+                              <Phone className={`h-4 w-4 ${isFixingPhones ? 'animate-pulse' : ''}`} />
+                              <span className="hidden sm:inline">{isFixingPhones ? 'Fixing…' : 'Fix Phones'}</span>
+                            </Button>
+                            <Button size="sm" variant="outline" className="gap-1" onClick={handleSync} disabled={isSyncing}>
+                              <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
+                              <span className="hidden sm:inline">{isSyncing ? 'Syncing…' : 'Sync Now'}</span>
+                            </Button>
+                          </>
+                        )}
+                        <Button size="sm" className="gap-1" onClick={() => setIsAddDialogOpen(true)}>
+                            <PlusCircle className="mr-2 h-4 w-4" />
+                            Connect New Store
+                        </Button>
+                    </div>
                 </div>
             </CardHeader>
             <CardContent>

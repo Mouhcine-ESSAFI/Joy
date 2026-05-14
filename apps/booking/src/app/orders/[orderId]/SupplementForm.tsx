@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
 import {
   Form,
   FormControl,
@@ -17,10 +18,10 @@ import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
 import api from '@/lib/api-client';
 
-// ⭐ FIXED: Allow negative numbers (discounts)
 const supplementSchema = z.object({
   label: z.string().min(1, 'Label is required'),
   amount: z.string().min(1, 'Amount is required'),
+  visibleToDriver: z.boolean().default(false),
 });
 
 type SupplementFormValues = z.infer<typeof supplementSchema>;
@@ -39,6 +40,7 @@ export default function SupplementForm({ orderId, onFormSubmit }: SupplementForm
     defaultValues: {
       label: '',
       amount: '',
+      visibleToDriver: false,
     },
   });
 
@@ -70,7 +72,8 @@ export default function SupplementForm({ orderId, onFormSubmit }: SupplementForm
       await api.supplements.create(orderId, {
         label: values.label.trim(),
         amount: amountNumber,
-      } as any);
+        visibleToDriver: values.visibleToDriver,
+      });
 
       // ⭐ FIXED: Different message for discounts vs supplements
       const isDiscount = amountNumber < 0;
@@ -79,7 +82,7 @@ export default function SupplementForm({ orderId, onFormSubmit }: SupplementForm
         description: `${values.label} (${amountNumber > 0 ? '+' : ''}€${amountNumber.toFixed(2)}) has been added.`,
       });
 
-      form.reset({ label: '', amount: '' });
+      form.reset({ label: '', amount: '', visibleToDriver: false });
       onFormSubmit();
     } catch (e: any) {
       toast({
@@ -129,6 +132,22 @@ export default function SupplementForm({ orderId, onFormSubmit }: SupplementForm
               <p className="text-xs text-muted-foreground mt-1">
                 💡 Use positive for extra charges (+50), negative for discounts (-10)
               </p>
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="visibleToDriver"
+          render={({ field }) => (
+            <FormItem className="flex items-center justify-between rounded-lg border p-3">
+              <div className="space-y-0.5">
+                <FormLabel className="text-sm font-medium">Visible to Driver</FormLabel>
+                <p className="text-xs text-muted-foreground">Show this supplement in the driver app</p>
+              </div>
+              <FormControl>
+                <Switch checked={field.value} onCheckedChange={field.onChange} />
+              </FormControl>
             </FormItem>
           )}
         />

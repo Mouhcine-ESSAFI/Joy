@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, PlusCircle, Save, CalendarIcon, CreditCard, Trash2, Printer } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
-import { useOrder, useSupplements, useTransportTypes, useRoomTypeRules } from '@/lib/hooks';
+import { useOrder, useSupplements, useTransportTypes, useRoomTypeRules, useOrderHistory } from '@/lib/hooks';
 import api from '@/lib/api-client';
 import { useEffect, useMemo, useState } from 'react';
 import { useLocalStorage } from '@/hooks/use-local-storage';
@@ -29,16 +29,103 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Switch } from '@/components/ui/switch';
+
+const DRIVER_FIELD_LABELS: Record<string, string> = {
+  tourDate: 'Tour Date', tourHour: 'Tour Hour', pax: 'Passengers',
+  campType: 'Camp Type', roomType: 'Room Type', pickupLocation: 'Pickup Location',
+  accommodationName: 'Host Name', note: 'Note',
+};
+
+function DriverHistoryTab({ orderId, orderNumber }: { orderId: string; orderNumber: string }) {
+  const { history, loading } = useOrderHistory(orderId);
+  const confirmations = history.filter((h) => h.type === 'driver_confirmed');
+
+  function exportCsv() {
+    const rows: string[][] = [['Date', 'Field', 'Old Value', 'New Value']];
+    confirmations.forEach((h) => {
+      const changes: any[] = (h as any).metadata?.confirmedChanges ?? [];
+      if (changes.length === 0) {
+        rows.push([format(new Date(h.createdAt), 'dd/MM/yyyy HH:mm'), '—', '—', '—']);
+      } else {
+        changes.forEach((c: any) => {
+          rows.push([
+            format(new Date(h.createdAt), 'dd/MM/yyyy HH:mm'),
+            DRIVER_FIELD_LABELS[c.field] ?? c.field,
+            c.oldValue ?? '',
+            c.newValue ?? '',
+          ]);
+        });
+      }
+    });
+    const bom = '﻿';
+    const csv = bom + rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `driver-history-${orderNumber}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  if (loading) return <Skeleton className="h-32 w-full" />;
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <CardTitle>Driver Confirmation History</CardTitle>
+        {confirmations.length > 0 && (
+          <Button size="sm" variant="outline" onClick={exportCsv}>Export CSV</Button>
+        )}
+      </CardHeader>
+      <CardContent>
+        {confirmations.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-6">No driver confirmations yet.</p>
+        ) : (
+          <div className="space-y-4">
+            {confirmations.map((h) => {
+              const changes: any[] = (h as any).metadata?.confirmedChanges ?? [];
+              return (
+                <div key={h.id} className="rounded-md border p-4 space-y-2">
+                  <p className="text-xs text-muted-foreground">
+                    Confirmed by driver on {format(new Date(h.createdAt), 'dd MMM yyyy, HH:mm')}
+                  </p>
+                  {changes.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No field changes recorded.</p>
+                  ) : (
+                    <div className="space-y-1.5">
+                      {changes.map((c: any, i: number) => (
+                        <div key={i} className="text-sm flex flex-wrap items-center gap-2">
+                          <span className="font-medium min-w-[120px]">{DRIVER_FIELD_LABELS[c.field] ?? c.field}</span>
+                          <span className="text-muted-foreground line-through">{c.oldValue || '—'}</span>
+                          <span className="text-muted-foreground">→</span>
+                          <span className="font-semibold">{c.newValue || '—'}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 const orderSchema = z.object({
-  status: z.enum(['New', 'Updated', 'Validate', 'Completed', 'Canceled']),
+  status: z.enum(['New', 'Updated', 'Validate', 'Completed', 'Processed', 'Canceled']),
   customerName: z.string().min(1, 'Customer name is required'),
   customerEmail: z.string().email().optional().or(z.literal('')),
   customerPhone: z.string().optional().nullable(),
+  language: z.string().optional().nullable(),
 
   transportCode: z.string().optional().nullable(),
   driverName: z.string().optional().nullable(),
   note: z.string().optional().nullable(),
+  comment: z.string().optional().nullable(),
 
   tourDate: z.date().nullable(),
   tourHour: z.string().optional().nullable(),
@@ -99,6 +186,7 @@ export default function OrderDetailsPage() {
 
   const [isSupplementFormOpen, setSupplementFormOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const [activeTab, setActiveTab] = useLocalStorage('order-detail-tab', 'details');
   const [formInitialized, setFormInitialized] = useState(false);
 
@@ -109,9 +197,11 @@ export default function OrderDetailsPage() {
       customerName: '',
       customerEmail: '',
       customerPhone: '',
+      language: null,
       transportCode: null,
       driverName: '',
       note: '',
+      comment: '',
       tourDate: null,
       tourHour: '',
       tourType: null,
@@ -126,6 +216,8 @@ export default function OrderDetailsPage() {
   const {
     formState: { isDirty },
   } = form;
+
+  const currentStatus = form.watch('status');
 
   // Derive room type options from the rule that matches current PAX
   const paxValue = form.watch('pax');
@@ -151,9 +243,11 @@ export default function OrderDetailsPage() {
       customerName: order.customerName ?? '',
       customerEmail: order.customerEmail ?? '',
       customerPhone: order.customerPhone ?? '',
+      language: order.language ?? order.storeId ?? null,
       transportCode: order.transport ?? null,
       driverName: order.driverNotes ?? '',
       note: order.note ?? '',
+      comment: order.comment ?? '',
 
       tourDate: order.tourDate ? new Date(order.tourDate) : null,
       tourHour: order.tourHour ?? '',
@@ -195,7 +289,7 @@ export default function OrderDetailsPage() {
 
     setIsSaving(true);
 
-    const payload = {
+    const payload: Record<string, any> = {
       status: values.status,
 
       customerName: values.customerName,
@@ -205,6 +299,8 @@ export default function OrderDetailsPage() {
       transport: normalizeTransportCode(values.transportCode),
       driverNotes: cleanString(values.driverName),
       note: cleanString(values.note),
+      comment: cleanString(values.comment),
+      language: cleanString(values.language),
 
       tourDate: values.tourDate ? format(values.tourDate, 'yyyy-MM-dd') : null,
       tourHour: cleanString(values.tourHour),
@@ -237,13 +333,14 @@ export default function OrderDetailsPage() {
     }
   }
 
-  const statuses: StatusValue[] = ['New', 'Updated', 'Completed', 'Canceled'];
+  const statuses: StatusValue[] = ['Validate', 'Completed', 'Processed', 'Canceled'];
 
   const statusConfig: Record<StatusValue, string> = {
     New: 'bg-primary',
     Updated: 'bg-yellow-500',
     Validate: 'bg-purple-500',
     Completed: 'bg-green-500',
+    Processed: 'bg-blue-500',
     Canceled: 'bg-red-500',
   };
 
@@ -422,6 +519,9 @@ export default function OrderDetailsPage() {
                     <TabsTrigger value="history" className="data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none border-b-2 border-transparent rounded-none px-3 py-2 text-sm font-medium text-muted-foreground transition-none focus-visible:ring-0">
                       History
                     </TabsTrigger>
+                    <TabsTrigger value="driver-history" className="data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none border-b-2 border-transparent rounded-none px-3 py-2 text-sm font-medium text-muted-foreground transition-none focus-visible:ring-0">
+                      Driver History
+                    </TabsTrigger>
                   </TabsList>
                 </div>
               </div>
@@ -446,13 +546,14 @@ export default function OrderDetailsPage() {
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Tour Date</FormLabel>
-                            <Popover>
+                            <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
                               <PopoverTrigger asChild>
                                 <FormControl>
                                   <Button
                                     type="button"
                                     variant="outline"
                                     className={cn('w-full pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}
+                                    onClick={() => setCalendarOpen(true)}
                                   >
                                     {field.value ? format(field.value, 'dd-MM-yy') : <span>Pick a date</span>}
                                     <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
@@ -463,7 +564,7 @@ export default function OrderDetailsPage() {
                                 <Calendar
                                   mode="single"
                                   selected={field.value ?? undefined}
-                                  onSelect={(d) => field.onChange(d ?? null)}
+                                  onSelect={(d) => { field.onChange(d ?? null); setCalendarOpen(false); }}
                                   initialFocus
                                 />
                               </PopoverContent>
@@ -606,18 +707,24 @@ export default function OrderDetailsPage() {
                         render={({ field }) => {
                           const currentTransport = allTransportTypes.find((t) => t.code === field.value);
                           const isInactive = currentTransport ? !currentTransport.isActive : false;
+                          const isTransportLocked = currentStatus !== 'Completed';
 
                           return (
                             <FormItem>
-                              <FormLabel>Transport</FormLabel>
+                              <FormLabel>
+                                Transport
+                                {isTransportLocked && (
+                                  <span className="ml-2 text-xs text-muted-foreground font-normal">(requires Completed status)</span>
+                                )}
+                              </FormLabel>
                               <Select
                                 value={field.value ?? 'none'}
                                 onValueChange={(v) => field.onChange(v === 'none' ? null : v)}
+                                disabled={isTransportLocked}
                               >
                                 <FormControl>
                                   <SelectTrigger>
                                     <SelectValue placeholder="Select transport...">
-                                      {/* ⭐ FIX 5: Always show current value */}
                                       {field.value ? (
                                         <span className={isInactive ? 'text-muted-foreground' : ''}>
                                           {field.value}{isInactive ? ' ⚠️ (Inactive)' : ''}
@@ -715,6 +822,20 @@ export default function OrderDetailsPage() {
                         </FormItem>
                       )}
                     />
+
+                    <FormField
+                      control={form.control}
+                      name="language"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Language</FormLabel>
+                          <FormControl>
+                            <Input {...field} value={field.value ?? ''} placeholder="e.g. EN, ES, FR" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -805,6 +926,7 @@ export default function OrderDetailsPage() {
                               <TableRow>
                                 <TableHead>Label</TableHead>
                                 <TableHead className="text-right">Amount</TableHead>
+                                <TableHead className="text-center w-[80px]">Driver</TableHead>
                                 <TableHead className="w-[50px]" />
                               </TableRow>
                             </TableHeader>
@@ -816,6 +938,19 @@ export default function OrderDetailsPage() {
                                     className={cn('text-right font-medium', Number(s.amount) < 0 && 'text-green-600')}
                                   >
                                     {formatCurrency(s.amount)}
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    <Switch
+                                      checked={s.visibleToDriver}
+                                      onCheckedChange={async (checked) => {
+                                        try {
+                                          await api.supplements.updateVisibility(s.id, checked);
+                                          refetchSupplements();
+                                        } catch (e: any) {
+                                          toast({ variant: 'destructive', title: 'Update Failed', description: e.message });
+                                        }
+                                      }}
+                                    />
                                   </TableCell>
                                   <TableCell>
                                     <Button
@@ -865,6 +1000,10 @@ export default function OrderDetailsPage() {
                 <OrderTimeline orderId={orderId} />
               </TabsContent>
 
+              <TabsContent value="driver-history">
+                <DriverHistoryTab orderId={orderId} orderNumber={order.shopifyOrderNumber} />
+              </TabsContent>
+
               <Card>
                 <CardHeader>
                   <CardTitle>Operational Note</CardTitle>
@@ -878,6 +1017,32 @@ export default function OrderDetailsPage() {
                         <FormControl>
                           <Textarea
                             placeholder="Add any operational notes here..."
+                            className="min-h-[100px]"
+                            {...field}
+                            value={field.value ?? ''}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Comment</CardTitle>
+                  <CardDescription>Only you and other staff can see comments</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <FormField
+                    control={form.control}
+                    name="comment"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <Textarea
+                            placeholder="Add a staff comment..."
                             className="min-h-[100px]"
                             {...field}
                             value={field.value ?? ''}

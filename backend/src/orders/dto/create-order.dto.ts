@@ -142,6 +142,14 @@ export class CreateOrderDto {
   @IsOptional()
   note?: string;
 
+  @IsString()
+  @IsOptional()
+  comment?: string;
+
+  @IsString()
+  @IsOptional()
+  language?: string;
+
   // Driver Assignment
   @IsUUID()
   @IsOptional()

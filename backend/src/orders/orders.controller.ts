@@ -96,6 +96,13 @@ export class OrdersController {
     return this.ordersService.addNote(id, note, userId);
   }
 
+  @Post(':id/driver-confirm')
+  @Roles('Driver')
+  driverConfirm(@Param('id') id: string, @Req() req: Request) {
+    const userId = (req.user as any)?.id;
+    return this.ordersService.driverConfirm(id, userId);
+  }
+
   @Get(':id/history')
   @Roles('Owner', 'Admin', 'Travel Agent', 'Finance', 'Driver')
   getHistory(@Param('id') id: string) {

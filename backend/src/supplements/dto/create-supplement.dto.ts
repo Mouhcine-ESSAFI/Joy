@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsNotEmpty, ValidateIf } from 'class-validator';
+import { IsString, IsNumber, IsNotEmpty, ValidateIf, IsBoolean, IsOptional } from 'class-validator';
 
 export class CreateSupplementDto {
   @IsString()
@@ -10,4 +10,8 @@ export class CreateSupplementDto {
     message: 'Amount cannot be zero',
   })
   amount: number;
+
+  @IsBoolean()
+  @IsOptional()
+  visibleToDriver?: boolean;
 }

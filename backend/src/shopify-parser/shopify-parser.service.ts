@@ -1,16 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { TourType } from '../orders/entities/order.entity';
-
-const COUNTRY_DIAL_CODES: Record<string, string> = {
-  MA: '212', DZ: '213', TN: '216', LY: '218', EG: '20',
-  ES: '34', FR: '33', DE: '49', IT: '39', PT: '351',
-  GB: '44', NL: '31', BE: '32', CH: '41', AT: '43',
-  US: '1', CA: '1', MX: '52', BR: '55', AR: '54',
-  SA: '966', AE: '971', QA: '974', KW: '965', BH: '973',
-  TR: '90', RU: '7', IN: '91', CN: '86', JP: '81',
-  SN: '221', ML: '223', CI: '225', CM: '237', NG: '234',
-  ZA: '27', KE: '254', ET: '251', GH: '233',
-};
+import { parsePhoneNumber, isValidPhoneNumber, CountryCode } from 'libphonenumber-js';
 
 interface ParsedLineItem {
   shopifyLineItemId: string;
@@ -296,28 +286,29 @@ export class ShopifyParserService {
 
   /**
    * Normalize a phone number to E.164 format (+XXXXXXXXXXX).
-   * Uses the ISO 3166-1 alpha-2 countryCode to resolve numbers that
-   * lack an international prefix (e.g. "0612345678" → "+212612345678" for MA).
+   * Uses libphonenumber-js with the ISO 3166-1 alpha-2 countryCode hint
+   * to resolve numbers that lack an international prefix.
    */
   normalizePhone(phone: string | null | undefined, countryCode?: string): string | null {
     if (!phone) return null;
 
-    // Strip formatting characters but keep leading +
-    let digits = phone.replace(/[\s\-().]/g, '');
+    const raw = phone.trim();
 
-    // Already international
-    if (digits.startsWith('+')) return digits;
+    try {
+      const country = countryCode?.toUpperCase() as CountryCode | undefined;
+      const parsed = parsePhoneNumber(raw, country);
+      if (parsed && isValidPhoneNumber(raw, country)) {
+        return parsed.format('E.164');
+      }
+    } catch {
+      // fall through
+    }
 
-    // 00-prefixed international (e.g. 00212...)
-    if (digits.startsWith('00')) return '+' + digits.slice(2);
+    // Already looks like E.164 — return as-is
+    if (/^\+\d{7,15}$/.test(raw.replace(/[\s\-().]/g, ''))) {
+      return raw.replace(/[\s\-().]/g, '');
+    }
 
-    // Resolve dial code from country
-    const dialCode = countryCode ? COUNTRY_DIAL_CODES[countryCode.toUpperCase()] : undefined;
-    if (!dialCode) return digits; // can't normalize — return as-is
-
-    // Strip leading 0 (national trunk prefix) before prepending dial code
-    if (digits.startsWith('0')) digits = digits.slice(1);
-
-    return '+' + dialCode + digits;
+    return raw; // can't normalize — store as-is
   }
 }
