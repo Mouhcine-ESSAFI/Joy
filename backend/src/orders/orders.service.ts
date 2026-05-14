@@ -324,13 +324,24 @@ export class OrdersService {
     // Apply updates
     Object.assign(order, updateOrderDto);
 
-    // If transport already set and driver-relevant fields changed (not a transport assignment),
-    // append those changes to driverPendingChanges so driver can confirm them.
+    // Track driver-visible state via driverPendingChanges:
+    // - New assignment  → set [{field:'_assignment', newValue: transportCode}]
+    // - Transport removed → clear to null
+    // - Field changes on assigned order → strip _assignment marker, append field diffs
     const DRIVER_RELEVANT_FIELDS = ['tourDate', 'tourHour', 'pax', 'campType', 'roomType', 'pickupLocation', 'accommodationName', 'note'];
     const transportChanged = changes.some(c => c.field === 'transport');
     const driverRelevantChanges = changes.filter(c => DRIVER_RELEVANT_FIELDS.includes(c.field));
-    if (order.transport && !transportChanged && driverRelevantChanges.length > 0) {
-      const existing = order.driverPendingChanges ?? [];
+    if (transportChanged && order.transport) {
+      order.driverPendingChanges = [{
+        field: '_assignment',
+        oldValue: '',
+        newValue: order.transport,
+        changedAt: new Date().toISOString(),
+      }];
+    } else if (transportChanged && !order.transport) {
+      order.driverPendingChanges = null;
+    } else if (order.transport && driverRelevantChanges.length > 0) {
+      const existing = (order.driverPendingChanges ?? []).filter(c => c.field !== '_assignment');
       order.driverPendingChanges = [
         ...existing,
         ...driverRelevantChanges.map(c => ({

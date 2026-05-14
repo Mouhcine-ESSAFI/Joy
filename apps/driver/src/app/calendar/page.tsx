@@ -26,16 +26,34 @@ function buildWhatsAppUrl(phone: string, customerName: string, tourDate: string 
   return `https://wa.me/${clean}?text=${msg}`;
 }
 
-function getStatusColor(status?: Order['status']) {
+type DriverStatus = 'New' | 'Updated' | 'Validate' | 'Completed' | 'Processed' | 'Canceled';
+
+function getDriverStatus(order: Order): DriverStatus {
+  if (order.status === 'Canceled') return 'Canceled';
+  if (order.status === 'Processed') return 'Processed';
+  if (!Array.isArray(order.driverPendingChanges) || order.driverPendingChanges.length === 0) {
+    return order.status as DriverStatus;
+  }
+  const isAssignment = order.driverPendingChanges.some((c: any) => c.field === '_assignment');
+  const hasFieldChanges = order.driverPendingChanges.some((c: any) => c.field !== '_assignment');
+  if (hasFieldChanges) return 'Updated';
+  if (isAssignment) return 'New';
+  return order.status as DriverStatus;
+}
+
+function getStatusColor(status: DriverStatus | string) {
   switch (status) {
+    case 'New': return 'bg-blue-100 text-blue-800';
+    case 'Updated': return 'bg-amber-100 text-amber-800';
     case 'Validate': return 'bg-purple-100 text-purple-800';
     case 'Completed': return 'bg-green-100 text-green-800';
+    case 'Processed': return 'bg-teal-100 text-teal-800';
     case 'Canceled': return 'bg-red-100 text-red-800';
     default: return 'bg-gray-100 text-gray-800';
   }
 }
 
-const STATUS_FILTERS = ['All', 'Validate', 'Completed', 'Processed', 'Canceled'] as const;
+const STATUS_FILTERS = ['All', 'New', 'Updated', 'Validate', 'Completed', 'Processed', 'Canceled'] as const;
 type StatusFilter = typeof STATUS_FILTERS[number];
 
 export default function DriverCalendarPage() {
@@ -90,10 +108,10 @@ export default function DriverCalendarPage() {
       .sort((a, b) => (a.tourDate! < b.tourDate! ? -1 : a.tourDate! > b.tourDate! ? 1 : 0));
   }, [orders]);
 
-  // Apply status filter
+  // Apply status filter using driver-facing status derived from driverPendingChanges
   const filteredOrders = useMemo(() => {
     if (statusFilter === 'All') return sortedOrders;
-    return sortedOrders.filter(o => o.status === statusFilter);
+    return sortedOrders.filter(o => getDriverStatus(o) === statusFilter);
   }, [sortedOrders, statusFilter]);
 
   function exportCSV() {
@@ -116,7 +134,7 @@ export default function DriverCalendarPage() {
       o.tourHour ?? '',
       String(o.pax),
       o.pickupLocation ?? '',
-      o.status,
+      getDriverStatus(o),
       o.customerPhone ?? '',
       o.tourCode ?? '',
       o.tourType ?? '',
@@ -346,9 +364,11 @@ export default function DriverCalendarPage() {
                       </div>
 
                       <div className="shrink-0 flex flex-col items-end gap-1">
-                        <Badge className={`text-[10px] border-0 px-1.5 py-px ${getStatusColor(order.status)}`}>
-                          {order.status}
-                        </Badge>
+                        {(() => { const ds = getDriverStatus(order); return (
+                          <Badge className={`text-[10px] border-0 px-1.5 py-px ${getStatusColor(ds)}`}>
+                            {ds}
+                          </Badge>
+                        ); })()}
                         <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
                       </div>
                     </button>

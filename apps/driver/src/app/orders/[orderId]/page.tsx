@@ -69,6 +69,33 @@ const FIELD_LABELS: Record<string, string> = {
   note: 'Note',
 };
 
+type DriverStatus = 'New' | 'Updated' | 'Validate' | 'Completed' | 'Processed' | 'Canceled';
+
+function getDriverStatus(order: { status: string; driverPendingChanges?: Array<{ field: string }> | null }): DriverStatus {
+  if (order.status === 'Canceled') return 'Canceled';
+  if (order.status === 'Processed') return 'Processed';
+  if (!Array.isArray(order.driverPendingChanges) || order.driverPendingChanges.length === 0) {
+    return order.status as DriverStatus;
+  }
+  const hasFieldChanges = order.driverPendingChanges.some(c => c.field !== '_assignment');
+  if (hasFieldChanges) return 'Updated';
+  const isAssignment = order.driverPendingChanges.some(c => c.field === '_assignment');
+  if (isAssignment) return 'New';
+  return order.status as DriverStatus;
+}
+
+function getDriverStatusColor(status: DriverStatus | string) {
+  switch (status) {
+    case 'New': return 'bg-blue-500 text-white';
+    case 'Updated': return 'bg-amber-500 text-white';
+    case 'Validate': return 'bg-purple-500 text-white';
+    case 'Completed': return 'bg-green-500 text-white';
+    case 'Processed': return 'bg-teal-500 text-white';
+    case 'Canceled': return 'bg-red-500 text-white';
+    default: return 'bg-gray-400 text-white';
+  }
+}
+
 export default function DriverOrderDetailPage() {
   const { orderId } = useParams<{ orderId: string }>();
   const router = useRouter();
@@ -127,7 +154,7 @@ export default function DriverOrderDetailPage() {
     : null;
 
   const visibleSupplements = supplements.filter((s) => s.visibleToDriver);
-  const totalSupplements = visibleSupplements.reduce((sum, s) => sum + Number(s.amount || 0), 0);
+  const totalSupplements = supplements.reduce((sum, s) => sum + Number(s.amount || 0), 0);
   const balanceDue = Number(order.lineItemPrice || 0) + totalSupplements - Number(order.depositAmount || 0);
 
   const duration = getProp(order.lineItemProperties, order.shopifyMetadata, 'Duration', 'duration');
@@ -140,7 +167,7 @@ export default function DriverOrderDetailPage() {
   return (
     <AppLayout>
       <div className="space-y-4 pb-6">
-        {/* Header — order number left, tour type right */}
+        {/* Header — order number left, status + tour type right */}
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={() => router.back()}>
             <ArrowLeft className="h-5 w-5" />
@@ -148,9 +175,9 @@ export default function DriverOrderDetailPage() {
           <div className="flex-1 min-w-0 flex items-center justify-between gap-2">
             <Badge variant="outline" className="text-xs font-mono">{order.shopifyOrderNumber}</Badge>
             <div className="flex items-center gap-1.5 shrink-0">
-              {hasPendingChanges && (
-                <Badge className="text-xs bg-amber-500 text-white">Updated</Badge>
-              )}
+              {(() => { const ds = getDriverStatus(order); return (
+                <Badge className={`text-xs ${getDriverStatusColor(ds)}`}>{ds}</Badge>
+              ); })()}
               {order.tourType && (
                 <Badge variant="secondary" className="text-xs">{order.tourType}</Badge>
               )}
@@ -158,37 +185,66 @@ export default function DriverOrderDetailPage() {
           </div>
         </div>
 
-        {/* Pending updates — driver must confirm */}
-        {hasPendingChanges && (
-          <Card className="border-amber-300 bg-amber-50/70">
-            <CardHeader className="pb-2 pt-4">
-              <CardTitle className="text-xs font-semibold text-amber-800 uppercase tracking-wide flex items-center gap-2">
-                <ArrowRight className="h-3.5 w-3.5" />
-                Tour Updated — Please Review Changes
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {(order.driverPendingChanges ?? []).map((c, i) => (
-                <div key={i} className="text-sm flex flex-col gap-0.5">
-                  <span className="text-xs font-medium text-amber-900">{FIELD_LABELS[c.field] ?? c.field}</span>
-                  <div className="flex items-center gap-2 text-amber-800">
-                    <span className="line-through opacity-60">{c.oldValue || '—'}</span>
-                    <ArrowRight className="h-3 w-3 shrink-0" />
-                    <span className="font-semibold">{c.newValue || '—'}</span>
+        {/* Pending card — new assignment or field updates */}
+        {hasPendingChanges && (() => {
+          const pending = order.driverPendingChanges ?? [];
+          const isNewAssignment = pending.length === 1 && pending[0].field === '_assignment';
+          const fieldChanges = pending.filter(c => c.field !== '_assignment');
+
+          if (isNewAssignment) {
+            return (
+              <Card className="border-blue-300 bg-blue-50/70">
+                <CardHeader className="pb-2 pt-4">
+                  <CardTitle className="text-xs font-semibold text-blue-800 uppercase tracking-wide flex items-center gap-2">
+                    <ArrowRight className="h-3.5 w-3.5" />
+                    New Tour Assigned — Please Confirm
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Button
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white gap-2"
+                    disabled={isConfirming}
+                    onClick={handleConfirmUpdates}
+                  >
+                    <CheckCheck className="h-4 w-4" />
+                    {isConfirming ? 'Confirming…' : 'OK — Tour Received'}
+                  </Button>
+                </CardContent>
+              </Card>
+            );
+          }
+
+          return (
+            <Card className="border-amber-300 bg-amber-50/70">
+              <CardHeader className="pb-2 pt-4">
+                <CardTitle className="text-xs font-semibold text-amber-800 uppercase tracking-wide flex items-center gap-2">
+                  <ArrowRight className="h-3.5 w-3.5" />
+                  Tour Updated — Please Review Changes
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {fieldChanges.map((c, i) => (
+                  <div key={i} className="text-sm flex flex-col gap-0.5">
+                    <span className="text-xs font-medium text-amber-900">{FIELD_LABELS[c.field] ?? c.field}</span>
+                    <div className="flex items-center gap-2 text-amber-800">
+                      <span className="line-through opacity-60">{c.oldValue || '—'}</span>
+                      <ArrowRight className="h-3 w-3 shrink-0" />
+                      <span className="font-semibold">{c.newValue || '—'}</span>
+                    </div>
                   </div>
-                </div>
-              ))}
-              <Button
-                className="w-full mt-3 bg-amber-600 hover:bg-amber-700 text-white gap-2"
-                disabled={isConfirming}
-                onClick={handleConfirmUpdates}
-              >
-                <CheckCheck className="h-4 w-4" />
-                {isConfirming ? 'Confirming…' : 'OK — I have seen the changes'}
-              </Button>
-            </CardContent>
-          </Card>
-        )}
+                ))}
+                <Button
+                  className="w-full mt-3 bg-amber-600 hover:bg-amber-700 text-white gap-2"
+                  disabled={isConfirming}
+                  onClick={handleConfirmUpdates}
+                >
+                  <CheckCheck className="h-4 w-4" />
+                  {isConfirming ? 'Confirming…' : 'OK — I have seen the changes'}
+                </Button>
+              </CardContent>
+            </Card>
+          );
+        })()}
 
         {/* 1 — Customer */}
         <Card>
