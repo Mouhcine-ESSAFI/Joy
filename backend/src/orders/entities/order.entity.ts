@@ -18,7 +18,6 @@ import { TransportType } from '../../transport-types/entities/transport-type.ent
 export enum OrderStatus {
   NEW = 'New',
   UPDATED = 'Updated',
-  VALIDATE = 'Validate',
   COMPLETED = 'Completed',
   PROCESSED = 'Processed',
   CANCELED = 'Canceled',

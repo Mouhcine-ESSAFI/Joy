@@ -69,13 +69,13 @@ const FIELD_LABELS: Record<string, string> = {
   note: 'Note',
 };
 
-type DriverStatus = 'New' | 'Updated' | 'Validate' | 'Completed' | 'Processed' | 'Canceled';
+type DriverStatus = 'New' | 'Updated' | 'Completed' | 'Processed' | 'Canceled';
 
 function getDriverStatus(order: { status: string; driverPendingChanges?: Array<{ field: string }> | null }): DriverStatus {
   if (order.status === 'Canceled') return 'Canceled';
   if (order.status === 'Processed') return 'Processed';
   if (!Array.isArray(order.driverPendingChanges) || order.driverPendingChanges.length === 0) {
-    return order.status as DriverStatus;
+    return (order.status === 'Completed' ? 'Completed' : order.status) as DriverStatus;
   }
   const hasFieldChanges = order.driverPendingChanges.some(c => c.field !== '_assignment');
   if (hasFieldChanges) return 'Updated';
@@ -88,7 +88,6 @@ function getDriverStatusColor(status: DriverStatus | string) {
   switch (status) {
     case 'New': return 'bg-blue-500 text-white';
     case 'Updated': return 'bg-amber-500 text-white';
-    case 'Validate': return 'bg-purple-500 text-white';
     case 'Completed': return 'bg-green-500 text-white';
     case 'Processed': return 'bg-teal-500 text-white';
     case 'Canceled': return 'bg-red-500 text-white';
@@ -179,7 +178,9 @@ export default function DriverOrderDetailPage() {
                 <Badge className={`text-xs ${getDriverStatusColor(ds)}`}>{ds}</Badge>
               ); })()}
               {order.tourType && (
-                <Badge variant="secondary" className="text-xs">{order.tourType}</Badge>
+                <span className={`text-xs font-bold px-2 py-0.5 rounded ${order.tourType === 'Private' ? 'bg-purple-100 text-purple-700' : 'bg-indigo-100 text-indigo-700'}`}>
+                  {order.tourType}
+                </span>
               )}
             </div>
           </div>

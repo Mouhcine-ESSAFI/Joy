@@ -26,13 +26,13 @@ function buildWhatsAppUrl(phone: string, customerName: string, tourDate: string 
   return `https://wa.me/${clean}?text=${msg}`;
 }
 
-type DriverStatus = 'New' | 'Updated' | 'Validate' | 'Completed' | 'Processed' | 'Canceled';
+type DriverStatus = 'New' | 'Updated' | 'Completed' | 'Processed' | 'Canceled';
 
 function getDriverStatus(order: Order): DriverStatus {
   if (order.status === 'Canceled') return 'Canceled';
   if (order.status === 'Processed') return 'Processed';
   if (!Array.isArray(order.driverPendingChanges) || order.driverPendingChanges.length === 0) {
-    return order.status as DriverStatus;
+    return (order.status === 'Completed' ? 'Completed' : order.status) as DriverStatus;
   }
   const isAssignment = order.driverPendingChanges.some((c: any) => c.field === '_assignment');
   const hasFieldChanges = order.driverPendingChanges.some((c: any) => c.field !== '_assignment');
@@ -45,7 +45,6 @@ function getStatusColor(status: DriverStatus | string) {
   switch (status) {
     case 'New': return 'bg-blue-100 text-blue-800';
     case 'Updated': return 'bg-amber-100 text-amber-800';
-    case 'Validate': return 'bg-purple-100 text-purple-800';
     case 'Completed': return 'bg-green-100 text-green-800';
     case 'Processed': return 'bg-teal-100 text-teal-800';
     case 'Canceled': return 'bg-red-100 text-red-800';
@@ -53,7 +52,7 @@ function getStatusColor(status: DriverStatus | string) {
   }
 }
 
-const STATUS_FILTERS = ['All', 'New', 'Updated', 'Validate', 'Completed', 'Processed', 'Canceled'] as const;
+const STATUS_FILTERS = ['All', 'New', 'Updated', 'Completed', 'Processed', 'Canceled'] as const;
 type StatusFilter = typeof STATUS_FILTERS[number];
 
 export default function DriverCalendarPage() {
@@ -101,11 +100,26 @@ export default function DriverCalendarPage() {
   const activeOrders = selectedDateOrders.filter(o => o.status !== 'Canceled');
   const canceledOrders = selectedDateOrders.filter(o => o.status === 'Canceled');
 
-  // All orders sorted by tourDate ASC (upcoming first), non-null dates only
+  // Upcoming tours first (today → future), then past/processed at the bottom (most recent past first)
   const sortedOrders = useMemo(() => {
+    const todayDate = format(new Date(), 'yyyy-MM-dd');
     return [...orders]
       .filter(o => o.tourDate)
-      .sort((a, b) => (a.tourDate! < b.tourDate! ? -1 : a.tourDate! > b.tourDate! ? 1 : 0));
+      .sort((a, b) => {
+        const aDs = getDriverStatus(a);
+        const bDs = getDriverStatus(b);
+        const aPast = a.tourDate! < todayDate || aDs === 'Processed';
+        const bPast = b.tourDate! < todayDate || bDs === 'Processed';
+
+        // Upcoming before past
+        if (aPast !== bPast) return aPast ? 1 : -1;
+
+        // Within upcoming: earliest first
+        if (!aPast) return a.tourDate! < b.tourDate! ? -1 : a.tourDate! > b.tourDate! ? 1 : 0;
+
+        // Within past/processed: most recent first
+        return a.tourDate! > b.tourDate! ? -1 : a.tourDate! < b.tourDate! ? 1 : 0;
+      });
   }, [orders]);
 
   // Apply status filter using driver-facing status derived from driverPendingChanges
@@ -350,8 +364,15 @@ export default function DriverCalendarPage() {
                       </div>
 
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold truncate">{order.customerName}</p>
-                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                        <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
+                          <p className="text-sm font-semibold truncate">{order.customerName}</p>
+                          {order.tourType && (
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 ${order.tourType === 'Private' ? 'bg-purple-100 text-purple-700' : 'bg-indigo-100 text-indigo-700'}`}>
+                              {order.tourType}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 flex-wrap">
                           {order.tourHour && (
                             <span className="text-xs text-muted-foreground flex items-center gap-0.5">
                               <Clock className="h-3 w-3" />{order.tourHour}

@@ -471,7 +471,11 @@ export class OrdersService {
   async driverConfirm(id: string, userId: string): Promise<Order> {
     const order = await this.findOne(id);
 
-    const confirmedChanges = order.driverPendingChanges ?? [];
+    const allPending = order.driverPendingChanges ?? [];
+    // Strip internal _assignment marker — only real field changes belong in history
+    const fieldChanges = allPending.filter(c => c.field !== '_assignment');
+    const wasNewAssignment = allPending.some(c => c.field === '_assignment') && fieldChanges.length === 0;
+
     order.driverPendingChanges = null;
 
     // Set status based on whether tour date has passed
@@ -486,7 +490,11 @@ export class OrdersService {
       orderId: order.id,
       type: OrderHistoryType.DRIVER_CONFIRMED,
       userId,
-      metadata: { confirmedChanges },
+      metadata: {
+        confirmedChanges: fieldChanges,
+        confirmedType: wasNewAssignment ? 'new_assignment' : 'field_update',
+        transport: order.transport,
+      },
     });
 
     this.eventsGateway.emitOrdersUpdated(savedOrder.storeId);

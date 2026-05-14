@@ -42,19 +42,20 @@ function DriverHistoryTab({ orderId, orderNumber }: { orderId: string; orderNumb
   const confirmations = history.filter((h) => h.type === 'driver_confirmed');
 
   function exportCsv() {
-    const rows: string[][] = [['Date', 'Field', 'Old Value', 'New Value']];
+    const rows: string[][] = [['Date', 'Type', 'Field', 'Old Value', 'New Value']];
     confirmations.forEach((h) => {
-      const changes: any[] = (h as any).metadata?.confirmedChanges ?? [];
-      if (changes.length === 0) {
-        rows.push([format(new Date(h.createdAt), 'dd/MM/yyyy HH:mm'), '—', '—', '—']);
+      const meta = (h as any).metadata ?? {};
+      const isNewAssignment = meta.confirmedType === 'new_assignment';
+      const changes: any[] = (meta.confirmedChanges ?? []).filter((c: any) => c.field !== '_assignment');
+      const dateStr = format(new Date(h.createdAt), 'dd/MM/yyyy HH:mm');
+
+      if (isNewAssignment) {
+        rows.push([dateStr, 'New Assignment', '—', '—', meta.transport ?? '—']);
+      } else if (changes.length === 0) {
+        rows.push([dateStr, 'Update Confirmed', '—', '—', '—']);
       } else {
         changes.forEach((c: any) => {
-          rows.push([
-            format(new Date(h.createdAt), 'dd/MM/yyyy HH:mm'),
-            DRIVER_FIELD_LABELS[c.field] ?? c.field,
-            c.oldValue ?? '',
-            c.newValue ?? '',
-          ]);
+          rows.push([dateStr, 'Update Confirmed', DRIVER_FIELD_LABELS[c.field] ?? c.field, c.oldValue ?? '', c.newValue ?? '']);
         });
       }
     });
@@ -73,8 +74,11 @@ function DriverHistoryTab({ orderId, orderNumber }: { orderId: string; orderNumb
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>Driver Confirmation History</CardTitle>
+      <CardHeader className="flex flex-row items-center justify-between pb-3">
+        <div>
+          <CardTitle className="text-base">Driver Confirmation History</CardTitle>
+          <CardDescription className="mt-0.5">{confirmations.length} confirmation{confirmations.length !== 1 ? 's' : ''}</CardDescription>
+        </div>
         {confirmations.length > 0 && (
           <Button size="sm" variant="outline" onClick={exportCsv}>Export CSV</Button>
         )}
@@ -83,24 +87,40 @@ function DriverHistoryTab({ orderId, orderNumber }: { orderId: string; orderNumb
         {confirmations.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-6">No driver confirmations yet.</p>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {confirmations.map((h) => {
-              const changes: any[] = (h as any).metadata?.confirmedChanges ?? [];
+              const meta = (h as any).metadata ?? {};
+              const isNewAssignment = meta.confirmedType === 'new_assignment';
+              const changes: any[] = (meta.confirmedChanges ?? []).filter((c: any) => c.field !== '_assignment');
+
               return (
-                <div key={h.id} className="rounded-md border p-4 space-y-2">
-                  <p className="text-xs text-muted-foreground">
-                    Confirmed by driver on {format(new Date(h.createdAt), 'dd MMM yyyy, HH:mm')}
-                  </p>
-                  {changes.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No field changes recorded.</p>
+                <div key={h.id} className={`rounded-md border p-3 space-y-2 ${isNewAssignment ? 'border-blue-200 bg-blue-50/40' : 'border-amber-200 bg-amber-50/40'}`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${isNewAssignment ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}`}>
+                      {isNewAssignment ? 'New assignment received' : 'Changes confirmed'}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {format(new Date(h.createdAt), 'dd MMM yyyy, HH:mm')}
+                    </span>
+                  </div>
+
+                  {isNewAssignment ? (
+                    <p className="text-sm text-blue-800">
+                      Driver acknowledged receipt of tour assignment
+                      {meta.transport ? <> · <span className="font-semibold">{meta.transport}</span></> : ''}.
+                    </p>
+                  ) : changes.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">Driver confirmed the tour update.</p>
                   ) : (
-                    <div className="space-y-1.5">
+                    <div className="space-y-1.5 pt-1">
                       {changes.map((c: any, i: number) => (
-                        <div key={i} className="text-sm flex flex-wrap items-center gap-2">
-                          <span className="font-medium min-w-[120px]">{DRIVER_FIELD_LABELS[c.field] ?? c.field}</span>
-                          <span className="text-muted-foreground line-through">{c.oldValue || '—'}</span>
-                          <span className="text-muted-foreground">→</span>
-                          <span className="font-semibold">{c.newValue || '—'}</span>
+                        <div key={i} className="text-sm grid grid-cols-[140px_1fr] gap-x-3 items-baseline">
+                          <span className="font-medium text-amber-900 truncate">{DRIVER_FIELD_LABELS[c.field] ?? c.field}</span>
+                          <span className="flex items-center gap-1.5 flex-wrap">
+                            <span className="line-through text-muted-foreground">{c.oldValue || '—'}</span>
+                            <span className="text-muted-foreground">→</span>
+                            <span className="font-semibold">{c.newValue || '—'}</span>
+                          </span>
                         </div>
                       ))}
                     </div>
@@ -116,7 +136,7 @@ function DriverHistoryTab({ orderId, orderNumber }: { orderId: string; orderNumb
 }
 
 const orderSchema = z.object({
-  status: z.enum(['New', 'Updated', 'Validate', 'Completed', 'Processed', 'Canceled']),
+  status: z.enum(['New', 'Updated', 'Completed', 'Processed', 'Canceled']),
   customerName: z.string().min(1, 'Customer name is required'),
   customerEmail: z.string().email().optional().or(z.literal('')),
   customerPhone: z.string().optional().nullable(),
@@ -338,9 +358,8 @@ export default function OrderDetailsPage() {
   const statusConfig: Record<StatusValue, string> = {
     New: 'bg-primary',
     Updated: 'bg-yellow-500',
-    Validate: 'bg-purple-500',
     Completed: 'bg-green-500',
-    Processed: 'bg-blue-500',
+    Processed: 'bg-teal-500',
     Canceled: 'bg-red-500',
   };
 

@@ -28,7 +28,7 @@ import type { TransportType } from '@/lib/types';
 
 
 const orderSchema = z.object({
-  status: z.enum(['New', 'Updated', 'Validate', 'Completed', 'Canceled']).default('New'),
+  status: z.enum(['New', 'Updated', 'Completed', 'Processed', 'Canceled']).default('New'),
   customerName: z.string().min(1, 'Customer name is required'),
   customerEmail: z.string().optional().refine(
     (val) => !val || z.string().email().safeParse(val).success,

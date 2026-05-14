@@ -580,8 +580,8 @@ function OrderDetailsPage({ orderId }) {
   return (
     <div>
       <h1>{order.shopifyOrderNumber}</h1>
-      <button onClick={() => handleStatusChange('Validate')}>
-        Validate Order
+      <button onClick={() => handleStatusChange('Completed')}>
+        Complete Order
       </button>
       {/* ... rest of UI ... *\/}
     </div>

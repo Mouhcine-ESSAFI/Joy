@@ -77,7 +77,6 @@ export interface AuthMeResponse extends User {}
 export enum OrderStatus {
   NEW = 'New',
   UPDATED = 'Updated',
-  VALIDATE = 'Validate',
   COMPLETED = 'Completed',
   PROCESSED = 'Processed',
   CANCELED = 'Canceled',

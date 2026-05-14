@@ -32,7 +32,7 @@ import {
   DropdownMenuItem,
 } from '@/components/ui/dropdown-menu';
 
-import { PlusCircle, ChevronDown, Download, Clock, Users, MapPin, Calendar as CalendarIcon, Search, AlertCircle, TrendingUp, ChevronUp, X, SlidersHorizontal } from 'lucide-react';
+import { PlusCircle, ChevronDown, Download, Clock, Users, MapPin, Calendar as CalendarIcon, Search, AlertCircle, TrendingUp, ChevronUp, X } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 
 import type { Order, ShopifyStore, TransportType, OrderStatus, TourType } from '@/lib/types';
@@ -89,8 +89,8 @@ const OrderCard = ({ order, allOrders }: { order: Order, allOrders: Order[] }) =
         switch (status) {
             case 'New': return 'bg-primary/10 text-primary border-primary/20';
             case 'Updated': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800/50';
-            case 'Validate': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300 border-purple-200 dark:border-purple-800/50';
             case 'Completed': return 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300 border-green-200 dark:border-green-800/50';
+            case 'Processed': return 'bg-teal-100 text-teal-800 dark:bg-teal-900/50 dark:text-teal-300 border-teal-200 dark:border-teal-800/50';
             case 'Canceled': return 'bg-destructive/10 text-destructive border-destructive/20';
             default: return 'bg-muted text-muted-foreground border-border';
         }
@@ -165,7 +165,6 @@ export default function OrdersClient() {
   const canCreateOrder = currentUser?.role === 'Owner' || currentUser?.role === 'Admin';
   const [mounted, setMounted] = React.useState(false);
   const [statsCollapsed, setStatsCollapsed] = useLocalStorage('orders-stats-collapsed', false);
-  const [filtersOpen, setFiltersOpen] = React.useState(false);
 
   React.useEffect(() => {
     setMounted(true);
@@ -412,12 +411,11 @@ export default function OrdersClient() {
   // statuses WITHOUT New/Updated (backend auto)
   const selectableStatuses: OrderStatus[] = ['Completed', 'Canceled'] as OrderStatus[];
 
-  const statusConfig: Record<Order['status'], string> = {
+  const statusConfig: Partial<Record<Order['status'], string>> = {
     New: 'bg-blue-500',
     Updated: 'bg-yellow-500',
-    Validate: 'bg-purple-500',
     Completed: 'bg-green-500',
-    Processed: 'bg-blue-500',
+    Processed: 'bg-teal-500',
     Canceled: 'bg-red-500',
   };
 
@@ -481,7 +479,7 @@ export default function OrdersClient() {
       }
     },
     
-    // status: show chip always, but select only for allowed statuses
+    // status: show chip always, dropdown allows Completed/Canceled only
     {
       accessorKey: 'status',
       header: 'Status',
@@ -496,8 +494,6 @@ export default function OrdersClient() {
           </div>
         );
 
-        // If backend auto-set New/Updated, user shouldn't change from dropdown there.
-        // We still allow from any status -> Validate/Completed/Refund/Canceled.
         return (
           <Select
             value={selectableStatuses.includes(current) ? current : undefined}
@@ -523,20 +519,20 @@ export default function OrdersClient() {
       },
     },
 
-    // transport: show code, dropdown shows active only
+    // transport: locked unless status === Completed
     {
       accessorKey: 'transport',
       header: 'Transport',
       cell: ({ row }) => {
         const order = row.original as any;
-        
-        // Find if transport is inactive
-        const currentTransport = allTransportTypes?.find(t => t.code === order.transport);
+        const isLocked = order.status !== 'Completed';
+        const currentTransport = allTransportTypes?.find((t: TransportType) => t.code === order.transport);
         const isInactive = currentTransport && !currentTransport.isActive;
 
         return (
           <Select
             value={order.transport ?? ''}
+            disabled={isLocked}
             onValueChange={(v) => {
               patchOrder(
                 order.id,
@@ -545,24 +541,18 @@ export default function OrdersClient() {
               );
             }}
           >
-            <SelectTrigger className="w-[120px]">
+            <SelectTrigger className={cn('w-[120px]', isLocked && 'opacity-50 cursor-not-allowed')}>
               <SelectValue placeholder="Select...">
                 {order.transport ? (
-                  <span className={isInactive ? 'text-muted-foreground' : ''}>
-                    {order.transport}
-                  </span>
+                  <span className={isInactive ? 'text-muted-foreground' : ''}>{order.transport}</span>
                 ) : (
-                  'None'
+                  <span className="text-muted-foreground">{isLocked ? '—' : 'None'}</span>
                 )}
               </SelectValue>
             </SelectTrigger>
-
             <SelectContent>
-              {/* Only active transports */}
-              {activeTransportTypes.map((t) => (
-                <SelectItem key={t.id} value={t.code}>
-                  {t.code}
-                </SelectItem>
+              {activeTransportTypes.map((t: TransportType) => (
+                <SelectItem key={t.id} value={t.code}>{t.code}</SelectItem>
               ))}
               <SelectItem value="none">No Transport</SelectItem>
             </SelectContent>
@@ -852,100 +842,75 @@ export default function OrdersClient() {
               statusTab !== 'all' ||
               search.trim() !== '';
 
-            const activeFilterCount = [
-              filters.dateRange !== undefined,
-              filters.storeId !== 'all',
-              filters.tourType !== 'all',
-              filters.transport !== 'all',
-            ].filter(Boolean).length;
-
             function clearFilters() {
               setFilters({ dateRange: undefined, storeId: 'all', tourType: 'all', transport: 'all' });
               setStatusTab('all');
               setSearch('');
               setPage(1);
-              setFiltersOpen(false);
             }
 
             return (
-              <div className="space-y-2 mb-3">
-                {/* Row 1: search + filter toggle */}
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                    <Input
-                      placeholder="Search customer, email, order…"
-                      value={search}
-                      onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                      className="pl-10"
-                    />
-                  </div>
-                  <Button
-                    variant={filtersOpen || activeFilterCount > 0 ? 'default' : 'outline'}
-                    size="icon"
-                    className="shrink-0 relative"
-                    onClick={() => setFiltersOpen((v) => !v)}
-                    title="Toggle filters"
-                  >
-                    <SlidersHorizontal className="h-4 w-4" />
-                    {activeFilterCount > 0 && (
-                      <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-destructive text-[10px] text-white flex items-center justify-center font-bold">
-                        {activeFilterCount}
-                      </span>
-                    )}
-                  </Button>
-                  {hasActiveFilters && (
-                    <Button variant="ghost" size="icon" className="shrink-0 text-muted-foreground" onClick={clearFilters} title="Clear filters">
-                      <X className="h-4 w-4" />
+              <>
+                {hasActiveFilters && (
+                  <div className="flex justify-end mb-1">
+                    <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-muted-foreground gap-1" onClick={clearFilters}>
+                      <X className="h-3 w-3" />
+                      Clear filters
                     </Button>
-                  )}
-                </div>
-
-                {/* Row 2: status tabs — always visible, scroll on mobile */}
-                <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-                  <TabsList className="w-max">
-                    <TabsTrigger value="all">All</TabsTrigger>
-                    <TabsTrigger value="New">New</TabsTrigger>
-                    <TabsTrigger value="Updated">Updated</TabsTrigger>
-                    <TabsTrigger value="Completed">Completed</TabsTrigger>
-                    <TabsTrigger value="Canceled">Canceled</TabsTrigger>
-                  </TabsList>
-                </div>
-
-                {/* Row 3: advanced filters panel (collapsible) */}
-                {filtersOpen && (
-                  <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 p-3 rounded-lg border bg-muted/30">
-                    <div className="col-span-2 sm:col-auto">
-                      <DatePickerWithRange
-                        date={filters.dateRange}
-                        onDateChange={(range) => { setFilters({ ...filters, dateRange: range }); setPage(1); }}
-                      />
-                    </div>
-                    <Select value={filters.tourType} onValueChange={(value) => { setFilters({ ...filters, tourType: value }); setPage(1); }}>
-                      <SelectTrigger><SelectValue placeholder="Tour Type" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Types</SelectItem>
-                        <SelectItem value="Shared">Shared</SelectItem>
-                        <SelectItem value="Private">Private</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Select value={filters.transport} onValueChange={(value) => { setFilters({ ...filters, transport: value }); setPage(1); }}>
-                      <SelectTrigger><SelectValue placeholder="Transport" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Transport</SelectItem>
-                        {activeTransportTypes.map((t) => (<SelectItem key={t.id} value={t.code}>{t.code}</SelectItem>))}
-                      </SelectContent>
-                    </Select>
-                    <Select value={filters.storeId} onValueChange={(value) => { setFilters({ ...filters, storeId: value }); setPage(1); }}>
-                      <SelectTrigger><SelectValue placeholder="All Stores" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Stores</SelectItem>
-                        {(shopifyStores || []).map((store) => (<SelectItem key={store.id} value={(store as any).internalName}>{(store as any).internalName}</SelectItem>))}
-                      </SelectContent>
-                    </Select>
                   </div>
                 )}
-              </div>
+
+                {/* Row 1 — status tabs + filter dropdowns */}
+                <div className="flex flex-wrap gap-2 mb-2">
+                  <div className="overflow-x-auto shrink-0">
+                    <TabsList>
+                      <TabsTrigger value="all">All</TabsTrigger>
+                      <TabsTrigger value="New">New</TabsTrigger>
+                      <TabsTrigger value="Updated">Updated</TabsTrigger>
+                      <TabsTrigger value="Completed">Completed</TabsTrigger>
+                      <TabsTrigger value="Processed">Processed</TabsTrigger>
+                      <TabsTrigger value="Canceled">Canceled</TabsTrigger>
+                    </TabsList>
+                  </div>
+                  <DatePickerWithRange
+                    date={filters.dateRange}
+                    onDateChange={(range) => { setFilters({ ...filters, dateRange: range }); setPage(1); }}
+                  />
+                  <Select value={filters.tourType} onValueChange={(value) => { setFilters({ ...filters, tourType: value }); setPage(1); }}>
+                    <SelectTrigger className="w-[130px]"><SelectValue placeholder="Tour Type" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Types</SelectItem>
+                      <SelectItem value="Shared">Shared</SelectItem>
+                      <SelectItem value="Private">Private</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select value={filters.transport} onValueChange={(value) => { setFilters({ ...filters, transport: value }); setPage(1); }}>
+                    <SelectTrigger className="w-[140px]"><SelectValue placeholder="Transport" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Transport</SelectItem>
+                      {activeTransportTypes.map((t) => (<SelectItem key={t.id} value={t.code}>{t.code}</SelectItem>))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={filters.storeId} onValueChange={(value) => { setFilters({ ...filters, storeId: value }); setPage(1); }}>
+                    <SelectTrigger className="w-[130px]"><SelectValue placeholder="All Stores" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Stores</SelectItem>
+                      {(shopifyStores || []).map((store) => (<SelectItem key={store.id} value={(store as any).internalName}>{(store as any).internalName}</SelectItem>))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Row 2 — search */}
+                <div className="relative mb-4">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                  <Input
+                    placeholder="Search by customer, email, order..."
+                    value={search}
+                    onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                    className="pl-10"
+                  />
+                </div>
+              </>
             );
           })()}
 
