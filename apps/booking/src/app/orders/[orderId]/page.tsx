@@ -333,7 +333,7 @@ export default function OrderDetailsPage() {
     }
   }
 
-  const statuses: StatusValue[] = ['Validate', 'Completed', 'Processed', 'Canceled'];
+  const statuses: StatusValue[] = ['Completed', 'Canceled'];
 
   const statusConfig: Record<StatusValue, string> = {
     New: 'bg-primary',
@@ -405,22 +405,22 @@ export default function OrderDetailsPage() {
             <div className="sticky top-0 z-10 -mx-4 -mt-4 lg:-mx-6 lg:-mt-6 bg-background/95 backdrop-blur-sm border-b">
               <div className="px-4 pt-4 lg:px-6 lg:pt-6 pb-2">
                 <Card className="bg-transparent border-none shadow-none">
-                  <CardHeader className="p-0 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-                    <div className="flex items-center gap-4">
+                  <CardHeader className="p-0">
+                    {/* Row 1: back + title + actions */}
+                    <div className="flex items-start gap-3">
                       <Button
                         type="button"
                         variant="outline"
                         size="icon"
-                        className="h-8 w-8 shrink-0"
+                        className="h-8 w-8 shrink-0 mt-0.5"
                         onClick={() => router.back()}
                       >
                         <ArrowLeft className="h-4 w-4" />
                         <span className="sr-only">Back</span>
                       </Button>
 
-                      <div className="grid gap-1">
-                        {/* Breadcrumb */}
-                        <nav className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <div className="flex-1 min-w-0">
+                        <nav className="flex items-center gap-1.5 text-xs text-muted-foreground mb-0.5">
                           <button
                             type="button"
                             className="hover:text-foreground transition-colors"
@@ -431,21 +431,39 @@ export default function OrderDetailsPage() {
                           <span>/</span>
                           <span className="text-foreground font-medium">{order.shopifyOrderNumber}</span>
                         </nav>
-                        <h1 className="text-xl md:text-2xl font-bold tracking-tight">
+                        <h1 className="text-lg sm:text-2xl font-bold tracking-tight truncate">
                           Order {order.shopifyOrderNumber}
                         </h1>
-                        <p className="text-xs md:text-sm text-muted-foreground">
-                          {format(new Date(order.createdAt), "dd-MM-yy 'at' h:mm a")} from {order.storeId} Store
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {format(new Date(order.createdAt), "dd-MM-yy 'at' h:mm a")} · {order.storeId}
                         </p>
+                      </div>
+
+                      {/* Desktop action buttons */}
+                      <div className="hidden sm:flex items-center gap-2 shrink-0">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          onClick={() => window.print()}
+                          title="Print order"
+                        >
+                          <Printer className="h-4 w-4" />
+                        </Button>
+                        <Button type="submit" disabled={isSaving || !isDirty}>
+                          <Save className="mr-2 h-4 w-4" />
+                          {isSaving ? 'Saving...' : 'Save Changes'}
+                        </Button>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 self-start sm:self-center ml-auto sm:ml-0">
+                    {/* Row 2: status + financial + mobile save */}
+                    <div className="flex items-center gap-2 mt-3 flex-wrap">
                       {order.financialStatus && (
                         <Badge
                           variant="secondary"
                           className={cn(
-                            'text-xs',
+                            'text-xs shrink-0',
                             order.financialStatus === 'paid' && 'bg-green-100 text-green-800',
                             order.financialStatus === 'partially_paid' && 'bg-yellow-100 text-yellow-800',
                             order.financialStatus === 'refunded' && 'bg-red-100 text-red-800'
@@ -463,9 +481,9 @@ export default function OrderDetailsPage() {
                           <FormItem>
                             <Select value={field.value} onValueChange={field.onChange}>
                               <FormControl>
-                                <SelectTrigger className="w-auto md:w-[160px] text-xs md:text-sm">
+                                <SelectTrigger className="h-8 text-xs w-auto min-w-[120px]">
                                   <div className="flex items-center gap-2">
-                                    <span className={cn('h-2 w-2 rounded-full', statusConfig[field.value])} />
+                                    <span className={cn('h-2 w-2 rounded-full shrink-0', statusConfig[field.value])} />
                                     <span>{field.value}</span>
                                   </div>
                                 </SelectTrigger>
@@ -485,19 +503,10 @@ export default function OrderDetailsPage() {
                         )}
                       />
 
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        className="hidden sm:flex"
-                        onClick={() => window.print()}
-                        title="Print order"
-                      >
-                        <Printer className="h-4 w-4" />
-                      </Button>
-                      <Button type="submit" disabled={isSaving || !isDirty} className="hidden sm:flex">
-                        <Save className="mr-2 h-4 w-4" />
-                        {isSaving ? 'Saving...' : 'Save Changes'}
+                      {/* Mobile save */}
+                      <Button type="submit" size="sm" disabled={isSaving || !isDirty} className="sm:hidden ml-auto">
+                        <Save className="mr-1.5 h-3.5 w-3.5" />
+                        {isSaving ? 'Saving…' : 'Save'}
                       </Button>
                     </div>
                   </CardHeader>
@@ -829,9 +838,33 @@ export default function OrderDetailsPage() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Language</FormLabel>
-                          <FormControl>
-                            <Input {...field} value={field.value ?? ''} placeholder="e.g. EN, ES, FR" />
-                          </FormControl>
+                          <Select value={field.value ?? ''} onValueChange={(v) => field.onChange(v || null)}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select language" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {[
+                                { code: 'EN', label: 'English' },
+                                { code: 'ES', label: 'Spanish' },
+                                { code: 'FR', label: 'French' },
+                                { code: 'DE', label: 'German' },
+                                { code: 'IT', label: 'Italian' },
+                                { code: 'PT', label: 'Portuguese' },
+                                { code: 'NL', label: 'Dutch' },
+                                { code: 'AR', label: 'Arabic' },
+                                { code: 'RU', label: 'Russian' },
+                                { code: 'ZH', label: 'Chinese' },
+                                { code: 'JA', label: 'Japanese' },
+                                { code: 'PL', label: 'Polish' },
+                              ].map(({ code, label }) => (
+                                <SelectItem key={code} value={code}>
+                                  {label} ({code})
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                           <FormMessage />
                         </FormItem>
                       )}
