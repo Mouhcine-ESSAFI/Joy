@@ -37,7 +37,7 @@ import { Separator } from '@/components/ui/separator';
 
 import type { Order, ShopifyStore, TransportType, OrderStatus, TourType } from '@/lib/types';
 import { Input } from '@/components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -915,7 +915,7 @@ export default function OrdersClient() {
           })()}
 
 
-          <TabsContent value={statusTab}>
+          <div>
             {isMobile ? (
                 <div className="space-y-4">
                     {isLoading ? renderMobileSkeleton() : orders.map(order => (
@@ -1110,7 +1110,7 @@ export default function OrdersClient() {
               }}
               transportTypes={activeTransportTypes}
             />
-          </TabsContent>
+          </div>
         </CardContent>
       </Card>
     </Tabs>
