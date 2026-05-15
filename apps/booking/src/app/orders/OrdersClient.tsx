@@ -850,34 +850,48 @@ export default function OrdersClient() {
             }
 
             return (
-              <>
-                {hasActiveFilters && (
-                  <div className="flex justify-end mb-1">
-                    <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-muted-foreground gap-1" onClick={clearFilters}>
-                      <X className="h-3 w-3" />
-                      Clear filters
+              <div className="space-y-2 mb-4">
+                {/* Row 1 — search + clear */}
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                    <Input
+                      placeholder="Search customer, email, order..."
+                      value={search}
+                      onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                      className="pl-10 h-9"
+                    />
+                  </div>
+                  {hasActiveFilters && (
+                    <Button variant="ghost" size="sm" className="shrink-0 h-9 px-2.5 text-xs text-muted-foreground gap-1" onClick={clearFilters}>
+                      <X className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Clear</span>
                     </Button>
-                  </div>
-                )}
+                  )}
+                </div>
 
-                {/* Row 1 — status tabs + filter dropdowns */}
-                <div className="flex flex-wrap gap-2 mb-2">
-                  <div className="overflow-x-auto shrink-0">
-                    <TabsList>
-                      <TabsTrigger value="all">All</TabsTrigger>
-                      <TabsTrigger value="New">New</TabsTrigger>
-                      <TabsTrigger value="Updated">Updated</TabsTrigger>
-                      <TabsTrigger value="Completed">Completed</TabsTrigger>
-                      <TabsTrigger value="Processed">Processed</TabsTrigger>
-                      <TabsTrigger value="Canceled">Canceled</TabsTrigger>
-                    </TabsList>
+                {/* Row 2 — status chips (scrollable) */}
+                <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 pb-0.5">
+                  <TabsList className="w-max h-8 gap-0">
+                    <TabsTrigger value="all" className="h-7 px-3 text-xs">All</TabsTrigger>
+                    <TabsTrigger value="New" className="h-7 px-3 text-xs">New</TabsTrigger>
+                    <TabsTrigger value="Updated" className="h-7 px-3 text-xs">Updated</TabsTrigger>
+                    <TabsTrigger value="Completed" className="h-7 px-3 text-xs">Completed</TabsTrigger>
+                    <TabsTrigger value="Processed" className="h-7 px-3 text-xs">Processed</TabsTrigger>
+                    <TabsTrigger value="Canceled" className="h-7 px-3 text-xs">Canceled</TabsTrigger>
+                  </TabsList>
+                </div>
+
+                {/* Row 3 — secondary filters: 2-col on mobile, inline on desktop */}
+                <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
+                  <div className="col-span-2 sm:col-auto">
+                    <DatePickerWithRange
+                      date={filters.dateRange}
+                      onDateChange={(range) => { setFilters({ ...filters, dateRange: range }); setPage(1); }}
+                    />
                   </div>
-                  <DatePickerWithRange
-                    date={filters.dateRange}
-                    onDateChange={(range) => { setFilters({ ...filters, dateRange: range }); setPage(1); }}
-                  />
                   <Select value={filters.tourType} onValueChange={(value) => { setFilters({ ...filters, tourType: value }); setPage(1); }}>
-                    <SelectTrigger className="w-[130px]"><SelectValue placeholder="Tour Type" /></SelectTrigger>
+                    <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Tour Type" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Types</SelectItem>
                       <SelectItem value="Shared">Shared</SelectItem>
@@ -885,32 +899,21 @@ export default function OrdersClient() {
                     </SelectContent>
                   </Select>
                   <Select value={filters.transport} onValueChange={(value) => { setFilters({ ...filters, transport: value }); setPage(1); }}>
-                    <SelectTrigger className="w-[140px]"><SelectValue placeholder="Transport" /></SelectTrigger>
+                    <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Transport" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Transport</SelectItem>
                       {activeTransportTypes.map((t) => (<SelectItem key={t.id} value={t.code}>{t.code}</SelectItem>))}
                     </SelectContent>
                   </Select>
                   <Select value={filters.storeId} onValueChange={(value) => { setFilters({ ...filters, storeId: value }); setPage(1); }}>
-                    <SelectTrigger className="w-[130px]"><SelectValue placeholder="All Stores" /></SelectTrigger>
+                    <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="All Stores" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Stores</SelectItem>
                       {(shopifyStores || []).map((store) => (<SelectItem key={store.id} value={(store as any).internalName}>{(store as any).internalName}</SelectItem>))}
                     </SelectContent>
                   </Select>
                 </div>
-
-                {/* Row 2 — search */}
-                <div className="relative mb-4">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                  <Input
-                    placeholder="Search by customer, email, order..."
-                    value={search}
-                    onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                    className="pl-10"
-                  />
-                </div>
-              </>
+              </div>
             );
           })()}
 

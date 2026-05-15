@@ -533,7 +533,7 @@ export default function OrderDetailsPage() {
               </div>
 
               <div className="px-4 lg:px-6">
-                <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 border-b">
+                <div className="-mx-4 px-4 sm:mx-0 sm:px-0 border-b">
                   <TabsList className="bg-transparent p-0 -mb-px h-auto">
                     <TabsTrigger value="details" className="data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none border-b-2 border-transparent rounded-none px-3 py-2 text-sm font-medium text-muted-foreground transition-none focus-visible:ring-0">
                       Tour Details

@@ -24,30 +24,31 @@ export function DatePickerWithRange({
   date,
   onDateChange
 }: DatePickerWithRangeProps) {
+  const [isMounted, setIsMounted] = React.useState(false);
+  React.useEffect(() => setIsMounted(true), []);
+  const isMobile = isMounted && window.innerWidth < 640;
+
   return (
     <div className={cn('grid gap-2', className)}>
       <Popover>
         <PopoverTrigger asChild>
           <Button
             id="date"
-            variant={'outline'}
+            variant="outline"
             className={cn(
-              'w-full justify-start text-left font-normal',
+              'w-full h-9 justify-start text-left text-xs font-normal',
               !date && 'text-muted-foreground'
             )}
           >
-            <CalendarIcon className="mr-2 h-4 w-4" />
+            <CalendarIcon className="mr-2 h-3.5 w-3.5 shrink-0" />
             {date?.from ? (
               date.to ? (
-                <>
-                  {format(date.from, 'dd-MM-yy')} -{' '}
-                  {format(date.to, 'dd-MM-yy')}
-                </>
+                <span className="truncate">{format(date.from, 'dd-MM-yy')} – {format(date.to, 'dd-MM-yy')}</span>
               ) : (
                 format(date.from, 'dd-MM-yy')
               )
             ) : (
-              <span>Pick a date</span>
+              <span>Date range</span>
             )}
           </Button>
         </PopoverTrigger>
@@ -58,7 +59,7 @@ export function DatePickerWithRange({
             defaultMonth={date?.from}
             selected={date}
             onSelect={onDateChange}
-            numberOfMonths={2}
+            numberOfMonths={isMobile ? 1 : 2}
           />
         </PopoverContent>
       </Popover>
