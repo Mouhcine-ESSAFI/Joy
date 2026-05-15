@@ -795,7 +795,7 @@ export default function OrdersClient() {
             }
 
             return (
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 pt-2">
                 {kpis.map((kpi) => {
                   const Icon = kpi.icon;
                   return (
@@ -806,20 +806,20 @@ export default function OrdersClient() {
                       onClick={kpi.onClick}
                     >
                       <div className={cn(
-                        'rounded-lg border p-3 flex items-center gap-3 transition-shadow cursor-pointer hover:shadow-sm',
+                        'rounded-lg border p-2.5 sm:p-3 flex items-center gap-2 sm:gap-3 transition-shadow cursor-pointer hover:shadow-sm',
                         kpi.alert && 'border-red-200 bg-red-50/30',
                       )}>
-                        <div className={cn('rounded-full p-2 shrink-0', kpi.color)}>
-                          <Icon className="h-4 w-4" />
+                        <div className={cn('rounded-full p-1.5 sm:p-2 shrink-0', kpi.color)}>
+                          <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                         </div>
                         <div className="min-w-0">
-                          <p className="text-xs text-muted-foreground truncate">{kpi.label}</p>
+                          <p className="text-[11px] sm:text-xs text-muted-foreground truncate leading-tight">{kpi.label}</p>
                           {kpi.value === null
-                            ? <Skeleton className="h-6 w-12 mt-0.5" />
-                            : <p className={cn('text-xl font-bold leading-tight', kpi.alert && 'text-red-600')}>{kpi.value}</p>
+                            ? <Skeleton className="h-5 w-10 mt-0.5" />
+                            : <p className={cn('text-lg sm:text-xl font-bold leading-tight', kpi.alert && 'text-red-600')}>{kpi.value}</p>
                           }
                           {kpi.sub && kpi.value !== null && (
-                            <p className={cn('text-xs', kpi.alert ? 'text-red-500' : 'text-muted-foreground')}>{kpi.sub}</p>
+                            <p className={cn('text-[11px] sm:text-xs truncate', kpi.alert ? 'text-red-500' : 'text-muted-foreground')}>{kpi.sub}</p>
                           )}
                         </div>
                       </div>
@@ -832,7 +832,7 @@ export default function OrdersClient() {
         </CardHeader>
 
         <CardContent>
-          {/* Row 1 — status tabs + filters */}
+          {/* Filters */}
           {(() => {
             const hasActiveFilters =
               filters.dateRange !== undefined ||
@@ -849,49 +849,98 @@ export default function OrdersClient() {
               setPage(1);
             }
 
+            const statusTabs = (
+              <TabsList className="w-max h-8 gap-0">
+                <TabsTrigger value="all" className="h-7 px-3 text-xs">All</TabsTrigger>
+                <TabsTrigger value="New" className="h-7 px-3 text-xs">New</TabsTrigger>
+                <TabsTrigger value="Updated" className="h-7 px-3 text-xs">Updated</TabsTrigger>
+                <TabsTrigger value="Completed" className="h-7 px-3 text-xs">Completed</TabsTrigger>
+                <TabsTrigger value="Processed" className="h-7 px-3 text-xs">Processed</TabsTrigger>
+                <TabsTrigger value="Canceled" className="h-7 px-3 text-xs">Canceled</TabsTrigger>
+              </TabsList>
+            );
+
+            const clearBtn = hasActiveFilters && (
+              <Button variant="ghost" size="sm" className="shrink-0 h-9 px-2.5 text-xs text-muted-foreground gap-1" onClick={clearFilters}>
+                <X className="h-3.5 w-3.5" />
+                Clear
+              </Button>
+            );
+
+            if (isMobile) {
+              return (
+                <div className="space-y-2 mb-4">
+                  {/* Row 1 — search + clear */}
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                      <Input
+                        placeholder="Search customer, email, order..."
+                        value={search}
+                        onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                        className="pl-10 h-9"
+                      />
+                    </div>
+                    {clearBtn}
+                  </div>
+
+                  {/* Row 2 — status chips scrollable */}
+                  <div className="overflow-x-auto -mx-4 px-4 pb-0.5">
+                    {statusTabs}
+                  </div>
+
+                  {/* Row 3 — secondary filters 2-col grid */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="col-span-2">
+                      <DatePickerWithRange
+                        date={filters.dateRange}
+                        onDateChange={(range) => { setFilters({ ...filters, dateRange: range }); setPage(1); }}
+                        numberOfMonths={1}
+                      />
+                    </div>
+                    <Select value={filters.tourType} onValueChange={(value) => { setFilters({ ...filters, tourType: value }); setPage(1); }}>
+                      <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Tour Type" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Types</SelectItem>
+                        <SelectItem value="Shared">Shared</SelectItem>
+                        <SelectItem value="Private">Private</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select value={filters.transport} onValueChange={(value) => { setFilters({ ...filters, transport: value }); setPage(1); }}>
+                      <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Transport" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Transport</SelectItem>
+                        {activeTransportTypes.map((t) => (<SelectItem key={t.id} value={t.code}>{t.code}</SelectItem>))}
+                      </SelectContent>
+                    </Select>
+                    <div className="col-span-2">
+                      <Select value={filters.storeId} onValueChange={(value) => { setFilters({ ...filters, storeId: value }); setPage(1); }}>
+                        <SelectTrigger className="h-9 text-xs w-full"><SelectValue placeholder="All Stores" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Stores</SelectItem>
+                          {(shopifyStores || []).map((store) => (<SelectItem key={store.id} value={(store as any).internalName}>{(store as any).internalName}</SelectItem>))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+
+            // Desktop — old flat layout
             return (
               <div className="space-y-2 mb-4">
-                {/* Row 1 — search + clear */}
-                <div className="flex items-center gap-2">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                    <Input
-                      placeholder="Search customer, email, order..."
-                      value={search}
-                      onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                      className="pl-10 h-9"
-                    />
-                  </div>
-                  {hasActiveFilters && (
-                    <Button variant="ghost" size="sm" className="shrink-0 h-9 px-2.5 text-xs text-muted-foreground gap-1" onClick={clearFilters}>
-                      <X className="h-3.5 w-3.5" />
-                      <span className="hidden sm:inline">Clear</span>
-                    </Button>
-                  )}
-                </div>
-
-                {/* Row 2 — status chips (scrollable) */}
-                <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 pb-0.5">
-                  <TabsList className="w-max h-8 gap-0">
-                    <TabsTrigger value="all" className="h-7 px-3 text-xs">All</TabsTrigger>
-                    <TabsTrigger value="New" className="h-7 px-3 text-xs">New</TabsTrigger>
-                    <TabsTrigger value="Updated" className="h-7 px-3 text-xs">Updated</TabsTrigger>
-                    <TabsTrigger value="Completed" className="h-7 px-3 text-xs">Completed</TabsTrigger>
-                    <TabsTrigger value="Processed" className="h-7 px-3 text-xs">Processed</TabsTrigger>
-                    <TabsTrigger value="Canceled" className="h-7 px-3 text-xs">Canceled</TabsTrigger>
-                  </TabsList>
-                </div>
-
-                {/* Row 3 — secondary filters: 2-col on mobile, inline on desktop */}
-                <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
-                  <div className="col-span-2 sm:col-auto">
-                    <DatePickerWithRange
-                      date={filters.dateRange}
-                      onDateChange={(range) => { setFilters({ ...filters, dateRange: range }); setPage(1); }}
-                    />
-                  </div>
+                {/* Row 1 — status tabs + secondary filters inline */}
+                <div className="flex flex-wrap items-center gap-2">
+                  {statusTabs}
+                  <DatePickerWithRange
+                    date={filters.dateRange}
+                    onDateChange={(range) => { setFilters({ ...filters, dateRange: range }); setPage(1); }}
+                    numberOfMonths={2}
+                    buttonClassName="h-9 text-xs"
+                  />
                   <Select value={filters.tourType} onValueChange={(value) => { setFilters({ ...filters, tourType: value }); setPage(1); }}>
-                    <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Tour Type" /></SelectTrigger>
+                    <SelectTrigger className="h-9 text-xs w-[120px]"><SelectValue placeholder="Tour Type" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Types</SelectItem>
                       <SelectItem value="Shared">Shared</SelectItem>
@@ -899,19 +948,31 @@ export default function OrdersClient() {
                     </SelectContent>
                   </Select>
                   <Select value={filters.transport} onValueChange={(value) => { setFilters({ ...filters, transport: value }); setPage(1); }}>
-                    <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Transport" /></SelectTrigger>
+                    <SelectTrigger className="h-9 text-xs w-[130px]"><SelectValue placeholder="Transport" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Transport</SelectItem>
                       {activeTransportTypes.map((t) => (<SelectItem key={t.id} value={t.code}>{t.code}</SelectItem>))}
                     </SelectContent>
                   </Select>
                   <Select value={filters.storeId} onValueChange={(value) => { setFilters({ ...filters, storeId: value }); setPage(1); }}>
-                    <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="All Stores" /></SelectTrigger>
+                    <SelectTrigger className="h-9 text-xs w-[130px]"><SelectValue placeholder="All Stores" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Stores</SelectItem>
                       {(shopifyStores || []).map((store) => (<SelectItem key={store.id} value={(store as any).internalName}>{(store as any).internalName}</SelectItem>))}
                     </SelectContent>
                   </Select>
+                  {clearBtn}
+                </div>
+
+                {/* Row 2 — search */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                  <Input
+                    placeholder="Search customer, email, order..."
+                    value={search}
+                    onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                    className="pl-10 h-9"
+                  />
                 </div>
               </div>
             );
