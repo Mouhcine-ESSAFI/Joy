@@ -43,6 +43,9 @@ export class ShopifyStore {
   @Column({ default: false })
   initialSyncCompleted: boolean;
 
+  @Column({ nullable: true })
+  primaryLocale: string; // e.g. "en", "es", "fr" — fetched from Shopify shop API
+
   @CreateDateColumn()
   createdAt: Date;
 

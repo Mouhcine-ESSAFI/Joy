@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format } from 'date-fns';
@@ -39,7 +39,7 @@ const orderSchema = z.object({
   transportCode: z.string().optional().nullable(),
   note: z.string().optional().nullable(),
   comment: z.string().optional().nullable(),
-  spots: z.string().optional().nullable(),
+  stops: z.string().optional().nullable(),
 
   tourCode: z.string().optional().nullable(),
   pax: z.coerce.number().int().min(1, 'At least one passenger is required'),
@@ -53,6 +53,7 @@ const orderSchema = z.object({
 
   totalPrice: z.coerce.number().min(0).default(0),
   depositAmount: z.coerce.number().min(0).default(0),
+  language: z.string().optional().nullable(),
 });
 
 type OrderFormValues = z.infer<typeof orderSchema>;
@@ -103,7 +104,7 @@ export default function NewOrderForm() {
       transportCode: null,
       note: '',
       comment: '',
-      spots: '',
+      stops: '',
       tourCode: null,
       pax: 1,
       tourDate: new Date(),
@@ -115,8 +116,24 @@ export default function NewOrderForm() {
       pickupLocation: '',
       totalPrice: 0,
       depositAmount: 0,
+      language: null,
     },
   });
+
+  // Auto-set language from store's primaryLocale when store selection changes
+  const watchedStoreId = useWatch({ control: form.control, name: 'storeId' });
+  const watchedCustomStoreId = useWatch({ control: form.control, name: 'customStoreId' });
+  useEffect(() => {
+    if (useCustomStore) {
+      if (watchedCustomStoreId) form.setValue('language', watchedCustomStoreId.toUpperCase());
+    } else {
+      const selected = stores.find((s) => (s.internalName || s.id) === watchedStoreId);
+      if (selected) {
+        const locale = selected.primaryLocale?.toUpperCase() ?? selected.internalName?.toUpperCase() ?? null;
+        form.setValue('language', locale);
+      }
+    }
+  }, [watchedStoreId, watchedCustomStoreId, useCustomStore, stores]);
 
   async function onSubmit(values: OrderFormValues) {
     setIsSaving(true);
@@ -148,7 +165,7 @@ export default function NewOrderForm() {
         roomType: values.roomType || null,
         accommodationName: values.accommodationName || null,
         pickupLocation: values.pickupLocation || null,
-        spots: values.spots || null,
+        stops: values.stops || null,
 
         transport: values.transportCode === 'none' ? null : (values.transportCode || null),
         note: values.note || null,
@@ -161,6 +178,7 @@ export default function NewOrderForm() {
         balanceAmount: values.totalPrice - values.depositAmount,
 
         financialStatus: 'pending',
+        language: values.language || null,
       };
 
       await api.orders.create(payload);
@@ -228,6 +246,33 @@ export default function NewOrderForm() {
                   </button>
                 </div>
               </FormItem>
+
+              {/* Language */}
+              <FormField control={form.control} name="language" render={({ field }) => (
+                <FormItem><FormLabel>Language</FormLabel>
+                  <Select value={field.value ?? ''} onValueChange={(v) => field.onChange(v || null)}>
+                    <FormControl><SelectTrigger><SelectValue placeholder="Select language" /></SelectTrigger></FormControl>
+                    <SelectContent>
+                      {[
+                        { code: 'EN', label: 'English' },
+                        { code: 'ES', label: 'Spanish' },
+                        { code: 'FR', label: 'French' },
+                        { code: 'DE', label: 'German' },
+                        { code: 'IT', label: 'Italian' },
+                        { code: 'PT', label: 'Portuguese' },
+                        { code: 'NL', label: 'Dutch' },
+                        { code: 'AR', label: 'Arabic' },
+                        { code: 'RU', label: 'Russian' },
+                        { code: 'ZH', label: 'Chinese' },
+                        { code: 'JA', label: 'Japanese' },
+                        { code: 'PL', label: 'Polish' },
+                      ].map(({ code, label }) => (
+                        <SelectItem key={code} value={code}>{label} ({code})</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                <FormMessage /></FormItem>
+              )} />
 
               {/* Payment */}
               <FormField control={form.control} name="totalPrice" render={({ field }) => (
@@ -313,9 +358,9 @@ export default function NewOrderForm() {
                     <FormMessage /></FormItem>
                   )} />
 
-                  {/* Spots */}
-                  <FormField control={form.control} name="spots" render={({ field }) => (
-                    <FormItem><FormLabel>Spots / Pickup Point</FormLabel><FormControl><Input {...field} value={field.value ?? ''} placeholder="e.g. Jemaa el-Fna" /></FormControl><FormMessage /></FormItem>
+                  {/* Stops */}
+                  <FormField control={form.control} name="stops" render={({ field }) => (
+                    <FormItem><FormLabel>Stops / Pickup Point</FormLabel><FormControl><Input {...field} value={field.value ?? ''} placeholder="e.g. Jemaa el-Fna" /></FormControl><FormMessage /></FormItem>
                   )} />
 
                   {/* Camp Type — optional */}

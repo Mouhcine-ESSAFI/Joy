@@ -11,6 +11,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { useUnsavedChanges } from '@/hooks/use-unsaved-changes';
 import SupplementForm from './SupplementForm';
 import { OrderTimeline } from '@/components/orders/OrderTimeline';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -240,6 +242,8 @@ export default function OrderDetailsPage() {
     formState: { isDirty },
   } = form;
 
+  const { showPrompt, confirmLeave, stayOnPage } = useUnsavedChanges(isDirty);
+
   const currentStatus = form.watch('status');
 
   // Derive room type options from the rule that matches current PAX
@@ -420,7 +424,27 @@ export default function OrderDetailsPage() {
   }
 
   return (
-    <AppLayout>
+    <>
+      <AlertDialog open={showPrompt}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unsaved Changes</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have unsaved changes that will be lost if you leave this page.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={stayOnPage}>Stay on page</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmLeave}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Leave anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AppLayout>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -591,7 +615,7 @@ export default function OrderDetailsPage() {
                   </CardHeader>
 
                   <CardContent>
-                    {/* flex: left = editable fields, right = spots route (xl+) */}
+                    {/* flex: left = editable fields, right = stops route (xl+) */}
                     <div className="flex flex-col xl:flex-row xl:gap-8">
                     <div className="flex-1 space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -827,23 +851,23 @@ export default function OrderDetailsPage() {
                     </div>
                     </div>{/* end flex-1 */}
 
-                    {/* Spots route — right sidebar */}
+                    {/* Stops route — right sidebar */}
                     {(() => {
-                      function parseSpots(o: typeof order): string[] {
-                        if (o?.spots) {
-                          try { const p = JSON.parse(o.spots); if (Array.isArray(p)) return p.map(String).filter(Boolean); } catch {}
-                          return o.spots.split(/[,\n;]/).map((s: string) => s.trim()).filter(Boolean);
+                      function parseStops(o: typeof order): string[] {
+                        if (o?.stops) {
+                          try { const p = JSON.parse(o.stops); if (Array.isArray(p)) return p.map(String).filter(Boolean); } catch {}
+                          return o.stops.split(/[,\n;]/).map((s: string) => s.trim()).filter(Boolean);
                         }
                         const mf: any[] = o?.shopifyMetadata?.metafields ?? [];
-                        const found = mf.find((m) => m.key?.toLowerCase() === 'spots');
+                        const found = mf.find((m) => m.key?.toLowerCase() === 'stops');
                         if (found?.value && !String(found.value).startsWith('gid://')) {
                           try { const p = JSON.parse(found.value); if (Array.isArray(p)) return p.map(String).filter(Boolean); } catch {}
                           return String(found.value).split(/[,\n;]/).map((s) => s.trim()).filter(Boolean);
                         }
                         return [];
                       }
-                      const spots = parseSpots(order);
-                      if (spots.length === 0) return null;
+                      const stops = parseStops(order);
+                      if (stops.length === 0) return null;
                       const arrival = (order.shopifyMetadata?.metafields ?? []).find((m: any) => ['to', 'to_', 'arrival', 'destination'].includes(m.key?.toLowerCase()))?.value
                         ?? (order.lineItemProperties?.raw ?? []).find((p: any) => ['to', 'to_', 'arrival', 'destination'].includes(p.name?.toLowerCase()))?.value;
                       return (
@@ -857,7 +881,7 @@ export default function OrderDetailsPage() {
                                 <span className="text-sm font-medium leading-tight">{order.pickupLocation}</span>
                               </div>
                             )}
-                            {spots.map((spot: string, i: number) => (
+                            {stops.map((spot: string, i: number) => (
                               <div key={i} className="relative flex items-start gap-3 pb-4">
                                 <div className="w-2.5 h-2.5 rounded-full border-2 border-primary bg-background shrink-0 mt-1 z-10 relative" />
                                 <span className="text-sm leading-tight">{spot}</span>
@@ -1233,5 +1257,6 @@ export default function OrderDetailsPage() {
         </form>
       </Form>
     </AppLayout>
+    </>
   );
 }

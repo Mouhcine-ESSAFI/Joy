@@ -96,7 +96,7 @@ export class CreateOrderDto {
 
   @IsString()
   @IsOptional()
-  spots?: string;
+  stops?: string;
 
   // Status
   @IsEnum(OrderStatus)

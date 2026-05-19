@@ -14,11 +14,10 @@ export class OrdersScheduler {
   ) {}
 
   /**
-   * Every day at 01:00 UTC: mark New/Updated orders whose tour date has passed as Completed.
-   * This covers tours that finished yesterday or earlier and were never manually closed.
+   * Every day at 01:00 UTC: mark New/Updated/Completed orders whose tour date has passed as Processed.
    */
   @Cron('0 1 * * *')
-  async autoCompleteExpiredOrders() {
+  async autoProcessExpiredOrders() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const todayStr = today.toISOString().split('T')[0];
@@ -26,9 +25,9 @@ export class OrdersScheduler {
     const result = await this.ordersRepository
       .createQueryBuilder()
       .update(Order)
-      .set({ status: OrderStatus.COMPLETED })
+      .set({ status: OrderStatus.PROCESSED })
       .where('status IN (:...statuses)', {
-        statuses: [OrderStatus.NEW, OrderStatus.UPDATED],
+        statuses: [OrderStatus.NEW, OrderStatus.UPDATED, OrderStatus.COMPLETED],
       })
       .andWhere('tourDate IS NOT NULL')
       .andWhere('tourDate < :today', { today: todayStr })
@@ -36,7 +35,7 @@ export class OrdersScheduler {
 
     if (result.affected && result.affected > 0) {
       this.logger.log(
-        `[Scheduler] Auto-completed ${result.affected} order(s) with past tour dates (before ${todayStr})`,
+        `[Scheduler] Auto-processed ${result.affected} order(s) with past tour dates (before ${todayStr})`,
       );
     }
   }

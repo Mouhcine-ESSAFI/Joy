@@ -202,7 +202,7 @@ export default function CustomersClient() {
     const bookingBase = typeof window !== 'undefined'
       ? `${window.location.protocol}//${BOOKING_HOST}`
       : `https://${BOOKING_HOST}`;
-    window.location.href = `${bookingBase}/orders?search=${encodeURIComponent(email)}`;
+    window.open(`${bookingBase}/orders?search=${encodeURIComponent(email)}`, '_blank', 'noopener,noreferrer');
   };
 
   const [isExporting, setIsExporting] = React.useState(false);

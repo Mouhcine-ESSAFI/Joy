@@ -60,6 +60,7 @@ export class WebhooksService {
       // Parse and create order
       const parsedOrder = this.parseShopifyOrderJSON(payload, store.internalName);
 
+      const storeLocale = await this.shopifyStoresService.fetchAndCachePrimaryLocale(store);
       const metafieldCache = new Map<string, any[]>();
 
       for (const lineItem of parsedOrder.lineItems) {
@@ -70,6 +71,8 @@ export class WebhooksService {
           }
           productMetafields = metafieldCache.get(lineItem.productId)!;
         }
+
+        const itineraryStops = await this.fetchItineraryStops(store, productMetafields);
 
         const orderDto = {
           shopifyOrderId: parsedOrder.shopifyOrderId,
@@ -105,8 +108,9 @@ export class WebhooksService {
 
           tags: parsedOrder.tags,
           note: parsedOrder.note,
-          language: store.internalName,
+          language: storeLocale ?? store.internalName,
 
+          stops: itineraryStops.length ? JSON.stringify(itineraryStops) : null,
           lineItemProperties: { raw: lineItem.properties },
           shopifyMetadata: { productType: lineItem.productType, metafields: productMetafields },
         };
@@ -189,6 +193,7 @@ export class WebhooksService {
       // Parse updated order
       const parsedOrder = this.parseShopifyOrderJSON(payload, store.internalName);
 
+      const storeLocale = await this.shopifyStoresService.fetchAndCachePrimaryLocale(store);
       const metafieldCache = new Map<string, any[]>();
 
       // Update each existing order
@@ -210,6 +215,8 @@ export class WebhooksService {
           }
           productMetafields = metafieldCache.get(lineItem.productId)!;
         }
+
+        const itineraryStops = await this.fetchItineraryStops(store, productMetafields);
 
         const updates: any = {
           shopifyCreatedAt: new Date(payload.created_at),
@@ -235,6 +242,7 @@ export class WebhooksService {
           financialStatus: parsedOrder.financialStatus as any,
           tags: parsedOrder.tags,
           note: parsedOrder.note,
+          stops: itineraryStops.length ? JSON.stringify(itineraryStops) : null,
           lineItemProperties: { raw: lineItem.properties },
           shopifyMetadata: { productType: lineItem.productType, metafields: productMetafields },
         };
@@ -581,6 +589,85 @@ export class WebhooksService {
       const data = await response.json();
       return (data.metafields || []).map((m: any) => ({ key: m.key, value: m.value, namespace: m.namespace }));
     } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Resolves the nested metaobject chain:
+   * product.tour_itinerary.itinerary_details → metaobject
+   *   .cities → list of metaobjects
+   *     .tour_location → metaobject
+   *       .name → stop name (string)
+   *
+   * Returns an array of stop names, or [] if the chain is missing/unreachable.
+   */
+  private async fetchItineraryStops(store: any, metafields: any[]): Promise<string[]> {
+    try {
+      const itineraryField = metafields.find(
+        (m) => m.namespace === 'tour_itinerary' && m.key === 'itinerary_details',
+      );
+      if (!itineraryField?.value) return [];
+
+      const gqlUrl = `https://${store.shopifyDomain}/admin/api/${store.apiVersion}/graphql.json`;
+      const headers = {
+        'X-Shopify-Access-Token': store.accessToken,
+        'Content-Type': 'application/json',
+      };
+
+      // Single GraphQL query — resolves all 3 levels of nesting
+      const query = `
+        query GetItinerary($id: ID!) {
+          metaobject(id: $id) {
+            fields {
+              key
+              references(first: 50) {
+                nodes {
+                  ... on Metaobject {
+                    fields {
+                      key
+                      reference {
+                        ... on Metaobject {
+                          fields {
+                            key
+                            value
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      `;
+
+      const res = await fetch(gqlUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ query, variables: { id: itineraryField.value } }),
+      });
+
+      if (!res.ok) return [];
+      const json = await res.json();
+
+      const itineraryFields: any[] = json?.data?.metaobject?.fields ?? [];
+      const citiesField = itineraryFields.find((f) => f.key === 'cities');
+      const cityNodes: any[] = citiesField?.references?.nodes ?? [];
+
+      const names: string[] = [];
+      for (const city of cityNodes) {
+        const cityFields: any[] = city.fields ?? [];
+        const locationField = cityFields.find((f) => f.key === 'tour_location');
+        const locationFields: any[] = locationField?.reference?.fields ?? [];
+        const nameField = locationFields.find((f) => f.key === 'name');
+        if (nameField?.value) names.push(String(nameField.value).trim());
+      }
+
+      return names;
+    } catch (err: any) {
+      this.logger.warn(`fetchItineraryStops failed: ${err?.message}`);
       return [];
     }
   }

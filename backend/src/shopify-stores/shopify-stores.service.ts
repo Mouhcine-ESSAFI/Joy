@@ -116,4 +116,24 @@ export class ShopifyStoresService {
     await this.shopifyStoresRepository.delete(id);
     this.logger.log(`🗑️ Store deleted: ${id}`);
   }
+
+  async fetchAndCachePrimaryLocale(store: ShopifyStore): Promise<string | null> {
+    if (store.primaryLocale) return store.primaryLocale;
+    try {
+      const url = `https://${store.shopifyDomain}/admin/api/${store.apiVersion}/shop.json?fields=primary_locale`;
+      const res = await fetch(url, { headers: { 'X-Shopify-Access-Token': store.accessToken } });
+      if (!res.ok) return null;
+      const data: any = await res.json();
+      const locale: string = data?.shop?.primary_locale;
+      if (locale) {
+        await this.shopifyStoresRepository.update(store.id, { primaryLocale: locale });
+        store.primaryLocale = locale;
+        this.logger.log(`Cached primaryLocale="${locale}" for store ${store.internalName}`);
+      }
+      return locale ?? null;
+    } catch (err: any) {
+      this.logger.warn(`Failed to fetch primaryLocale for ${store.internalName}: ${err?.message}`);
+      return null;
+    }
+  }
 }

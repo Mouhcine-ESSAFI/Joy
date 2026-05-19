@@ -281,23 +281,23 @@ export default function DriverOrderDetailPage() {
           </CardContent>
         </Card>
 
-        {/* 2 — Route (pickup → spots → arrival) */}
+        {/* 2 — Route (pickup → stops → arrival) */}
         {(() => {
-          function parseSpots(o: typeof order): string[] {
-            if (o?.spots) {
-              try { const p = JSON.parse(o.spots); if (Array.isArray(p)) return p.map(String).filter(Boolean); } catch {}
-              return o.spots.split(/[,\n;]/).map((s: string) => s.trim()).filter(Boolean);
+          function parseStops(o: typeof order): string[] {
+            if (o?.stops) {
+              try { const p = JSON.parse(o.stops); if (Array.isArray(p)) return p.map(String).filter(Boolean); } catch {}
+              return o.stops.split(/[,\n;]/).map((s: string) => s.trim()).filter(Boolean);
             }
             const mf: any[] = o?.shopifyMetadata?.metafields ?? [];
-            const found = mf.find((m) => m.key?.toLowerCase() === 'spots');
+            const found = mf.find((m) => m.key?.toLowerCase() === 'stops');
             if (found?.value && !String(found.value).startsWith('gid://')) {
               try { const p = JSON.parse(found.value); if (Array.isArray(p)) return p.map(String).filter(Boolean); } catch {}
               return String(found.value).split(/[,\n;]/).map((s) => s.trim()).filter(Boolean);
             }
             return [];
           }
-          const spots = parseSpots(order);
-          const hasRoute = order.pickupLocation || spots.length > 0 || arrival;
+          const stops = parseStops(order);
+          const hasRoute = order.pickupLocation || stops.length > 0 || arrival;
           if (!hasRoute) return null;
 
           return (
@@ -321,8 +321,8 @@ export default function DriverOrderDetailPage() {
                     </div>
                   )}
 
-                  {/* Spots (waypoints) */}
-                  {spots.map((spot: string, i: number) => (
+                  {/* Stops (waypoints) */}
+                  {stops.map((spot: string, i: number) => (
                     <div key={i} className="relative flex items-start gap-3 pb-4">
                       <div className="w-3.5 h-3.5 rounded-full border-2 border-primary bg-background shrink-0 mt-0.5 z-10 relative" />
                       <p className="text-sm">{spot}</p>

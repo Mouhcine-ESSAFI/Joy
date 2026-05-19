@@ -134,7 +134,7 @@ export interface Order {
   roomType: string | null;
   pickupLocation: string | null;
   accommodationName: string | null;
-  spots: string | null;
+  stops: string | null;
   
   // Status
   status: OrderStatus;
@@ -338,6 +338,7 @@ export interface ShopifyStore {
   apiVersion: string; // "2026-01"
   status: StoreStatus;
   // webhookSecret is NOT returned (sensitive)
+  primaryLocale: string | null; // e.g. "en", "es" — fetched from Shopify shop API
   lastSyncedAt: string | null; // ISO timestamp
   lastOrderFetchedAt: string | null; // ISO timestamp
   initialSyncCompleted: boolean;

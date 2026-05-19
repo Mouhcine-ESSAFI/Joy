@@ -134,7 +134,7 @@ export class Order {
   accommodationName: string;
 
   @Column({ nullable: true })
-  spots: string;
+  stops: string;
 
   // ==================== Status ====================
   @Column({
