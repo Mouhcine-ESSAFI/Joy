@@ -901,8 +901,8 @@ export default function OrderDetailsPage() {
 
                     {/* Shopify Product Data */}
                     {(() => {
-                      const metafields: any[] = order.shopifyMetadata?.metafields ?? [];
-                      const properties: any[] = order.lineItemProperties?.raw ?? [];
+                      const metafields: any[] = Array.isArray(order.shopifyMetadata?.metafields) ? order.shopifyMetadata.metafields : [];
+                      const properties: any[] = Array.isArray(order.lineItemProperties?.raw) ? order.lineItemProperties.raw : [];
                       if (metafields.length === 0 && properties.length === 0) return null;
                       return (
                         <>

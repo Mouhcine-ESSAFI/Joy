@@ -35,17 +35,21 @@ export class NotificationsService {
   }
 
   async subscribe(userId: string, subscription: any) {
-    const existing = await this.subscriptionsRepo.findOne({
-      where: { userId, endpoint: subscription.endpoint },
+    // Check if this exact endpoint already exists (for ANY user — endpoint is globally unique)
+    const byEndpoint = await this.subscriptionsRepo.findOne({
+      where: { endpoint: subscription.endpoint },
     });
 
-    if (existing) {
-      return existing;
+    if (byEndpoint) {
+      if (byEndpoint.userId === userId) return byEndpoint; // already subscribed
+      // Same device/browser, different user (e.g. re-login) — reassign to current user
+      byEndpoint.userId = userId;
+      byEndpoint.keys = subscription.keys;
+      this.logger.log(`Reassigned endpoint to user ${userId}`);
+      return this.subscriptionsRepo.save(byEndpoint);
     }
 
     // Remove stale subscriptions from the same push service origin (same device/browser).
-    // When a browser re-subscribes (e.g. after a VAPID key change), the old endpoint
-    // stays valid for a while and causes duplicate notifications.
     try {
       const newOrigin = new URL(subscription.endpoint).hostname;
       const all = await this.subscriptionsRepo.find({ where: { userId } });
