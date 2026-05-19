@@ -3,7 +3,7 @@
 import { useParams, useRouter } from 'next/navigation';
 import { useState } from 'react';
 import {
-  ArrowLeft, Clock, Users, MapPin, Tent, BedDouble, Building2,
+  ArrowLeft, Clock, Users, Tent, BedDouble, Building2,
   FileText, CalendarDays, Phone, MessageCircle, CreditCard,
   StickyNote, ListPlus, Timer, Navigation, PlaneLanding, XCircle, Globe,
   CheckCheck, ArrowRight,
@@ -281,20 +281,69 @@ export default function DriverOrderDetailPage() {
           </CardContent>
         </Card>
 
-        {/* 2 — Pickup Location */}
-        {order.pickupLocation && (
-          <Card>
-            <CardHeader className="pb-2 pt-4">
-              <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Pickup Location</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-start gap-3">
-                <MapPin className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-                <span>{order.pickupLocation}</span>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        {/* 2 — Route (pickup → spots → arrival) */}
+        {(() => {
+          function parseSpots(o: typeof order): string[] {
+            if (o?.spots) {
+              try { const p = JSON.parse(o.spots); if (Array.isArray(p)) return p.map(String).filter(Boolean); } catch {}
+              return o.spots.split(/[,\n;]/).map((s: string) => s.trim()).filter(Boolean);
+            }
+            const mf: any[] = o?.shopifyMetadata?.metafields ?? [];
+            const found = mf.find((m) => m.key?.toLowerCase() === 'spots');
+            if (found?.value && !String(found.value).startsWith('gid://')) {
+              try { const p = JSON.parse(found.value); if (Array.isArray(p)) return p.map(String).filter(Boolean); } catch {}
+              return String(found.value).split(/[,\n;]/).map((s) => s.trim()).filter(Boolean);
+            }
+            return [];
+          }
+          const spots = parseSpots(order);
+          const hasRoute = order.pickupLocation || spots.length > 0 || arrival;
+          if (!hasRoute) return null;
+
+          return (
+            <Card>
+              <CardHeader className="pb-2 pt-4">
+                <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Route</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="relative">
+                  {/* vertical connector line */}
+                  <div className="absolute left-[7px] top-3 bottom-3 w-px bg-border" />
+
+                  {/* Pickup / Departure */}
+                  {order.pickupLocation && (
+                    <div className="relative flex items-start gap-3 pb-4">
+                      <div className="w-3.5 h-3.5 rounded-full bg-primary shrink-0 mt-0.5 ring-2 ring-background z-10 relative" />
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground leading-none mb-0.5">Pickup</p>
+                        <p className="text-sm font-medium">{order.pickupLocation}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Spots (waypoints) */}
+                  {spots.map((spot: string, i: number) => (
+                    <div key={i} className="relative flex items-start gap-3 pb-4">
+                      <div className="w-3.5 h-3.5 rounded-full border-2 border-primary bg-background shrink-0 mt-0.5 z-10 relative" />
+                      <p className="text-sm">{spot}</p>
+                    </div>
+                  ))}
+
+                  {/* Arrival / Destination */}
+                  {arrival && (
+                    <div className="relative flex items-start gap-3">
+                      <div className="w-3.5 h-3.5 rounded-full bg-green-500 shrink-0 mt-0.5 ring-2 ring-background z-10 relative" />
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-green-600 leading-none mb-0.5">Arrival</p>
+                        <p className="text-sm font-medium text-green-700">{arrival}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })()}
 
         {/* 3 — Balance Due */}
         {balanceDue > 0 && (

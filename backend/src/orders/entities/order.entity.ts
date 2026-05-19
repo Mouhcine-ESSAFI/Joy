@@ -133,6 +133,9 @@ export class Order {
   @Column({ nullable: true })
   accommodationName: string;
 
+  @Column({ nullable: true })
+  spots: string;
+
   // ==================== Status ====================
   @Column({
     type: 'enum',

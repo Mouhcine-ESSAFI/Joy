@@ -94,6 +94,10 @@ export class CreateOrderDto {
   @IsOptional()
   accommodationName?: string;
 
+  @IsString()
+  @IsOptional()
+  spots?: string;
+
   // Status
   @IsEnum(OrderStatus)
   @IsOptional()

@@ -134,6 +134,7 @@ export interface Order {
   roomType: string | null;
   pickupLocation: string | null;
   accommodationName: string | null;
+  spots: string | null;
   
   // Status
   status: OrderStatus;
