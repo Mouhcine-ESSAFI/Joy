@@ -369,7 +369,8 @@ export interface UpdateShopifyStoreDto {
 export interface TourMapping {
   id: string; // UUID
   storeId: string; // "EN" | "ES"
-  productTitle: string;
+  shopifyProductId: string; // Shopify product ID — stable match key
+  productTitle: string | null; // Display only
   productSku: string | null;
   tourCode: string | null;
   createdAt: string; // ISO timestamp
@@ -377,7 +378,8 @@ export interface TourMapping {
 
 export interface CreateTourMappingDto {
   storeId: string;
-  productTitle: string;
+  shopifyProductId: string;
+  productTitle?: string; // Display only
   productSku?: string;
   tourCode?: string;
 }

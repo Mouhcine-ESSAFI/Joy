@@ -8,7 +8,7 @@ import {
 } from 'typeorm';
 
 @Entity('tour_code_mappings')
-@Index(['storeId', 'productTitle'], { unique: true })
+@Index(['storeId', 'shopifyProductId'], { unique: true })
 export class TourCodeMapping {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -16,8 +16,11 @@ export class TourCodeMapping {
   @Column()
   storeId: string; // 'EN', 'ES', 'FR'
 
-  @Column()
-  productTitle: string;
+  @Column({ nullable: true })
+  shopifyProductId: string; // Shopify product ID — stable even when title changes
+
+  @Column({ nullable: true })
+  productTitle: string; // Display only — not used for matching
 
   @Column({ nullable: true })
   productSku: string;

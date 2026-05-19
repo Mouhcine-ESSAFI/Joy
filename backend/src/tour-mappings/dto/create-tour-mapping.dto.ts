@@ -7,7 +7,11 @@ export class CreateTourMappingDto {
 
   @IsString()
   @IsNotEmpty()
-  productTitle: string;
+  shopifyProductId: string;
+
+  @IsString()
+  @IsOptional()
+  productTitle?: string; // Display only
 
   @IsString()
   @IsOptional()

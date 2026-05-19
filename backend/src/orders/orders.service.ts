@@ -46,14 +46,13 @@ export class OrdersService {
   async create(createOrderDto: CreateOrderDto): Promise<Order> {
     const order = this.ordersRepository.create(createOrderDto);
     
-    // ⭐ Auto-assign tour code from mapping
-    if (order.storeId && order.tourTitle && !order.tourCode) {
+    // Auto-assign tour code from mapping using Shopify product ID
+    if (order.storeId && !order.tourCode) {
       try {
-        const mapping = await this.tourMappingsService.findByStoreAndTitle(
-          order.storeId,
-          order.tourTitle,
-        );
-        
+        const mapping = order.shopifyProductId
+          ? await this.tourMappingsService.findByStoreAndProductId(order.storeId, order.shopifyProductId)
+          : null;
+
         if (mapping && mapping.tourCode) {
           order.tourCode = mapping.tourCode;
         }

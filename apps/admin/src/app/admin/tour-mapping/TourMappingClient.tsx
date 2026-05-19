@@ -34,8 +34,8 @@ export default function TourMappingClient() {
   const [deletingMapping, setDeletingMapping] = useState<TourMapping | null>(null);
   const [shopifyStores, setShopifyStores] = useState<ShopifyStore[]>([]);
 
-  const [formState, setFormState] = useState({ storeId: '', productTitle: '', tourCode: '' });
-  const [storeProducts, setStoreProducts] = useState<string[]>([]);
+  const [formState, setFormState] = useState({ storeId: '', shopifyProductId: '', tourCode: '' });
+  const [storeProducts, setStoreProducts] = useState<{ id: string; title: string }[]>([]);
   const [productsLoading, setProductsLoading] = useState(false);
 
   const { toast } = useToast();
@@ -68,14 +68,14 @@ export default function TourMappingClient() {
 
   const handleEditClick = (mapping: TourMapping) => {
     setEditingMapping(mapping);
-    setFormState({ storeId: mapping.storeId, productTitle: mapping.productTitle, tourCode: mapping.tourCode || '' });
+    setFormState({ storeId: mapping.storeId, shopifyProductId: mapping.shopifyProductId, tourCode: mapping.tourCode || '' });
     setIsFormOpen(true);
   };
 
   const handleCreateClick = () => {
     setEditingMapping(null);
     const first = shopifyStores.find((s) => s.status === 'active') || shopifyStores[0];
-    setFormState({ storeId: first?.internalName || '', productTitle: '', tourCode: '' });
+    setFormState({ storeId: first?.internalName || '', shopifyProductId: '', tourCode: '' });
     setIsFormOpen(true);
   };
 
@@ -85,22 +85,24 @@ export default function TourMappingClient() {
   };
 
   const handleStoreChange = (storeId: string) => {
-    setFormState((s) => ({ ...s, storeId, productTitle: '' }));
+    setFormState((s) => ({ ...s, storeId, shopifyProductId: '' }));
   };
 
   const handleSave = async () => {
     try {
       if (editingMapping) {
         await api.tourMappings.update(editingMapping.id, { tourCode: formState.tourCode });
-        toast({ title: 'Mapping Updated', description: `Tour code updated. All orders with the old code have been updated automatically.` });
+        toast({ title: 'Mapping Updated', description: `Tour code updated. All matching orders updated automatically.` });
       } else {
-        if (!formState.productTitle) {
-          toast({ variant: 'destructive', title: 'Missing Information', description: 'Please select a product title.' });
+        if (!formState.shopifyProductId) {
+          toast({ variant: 'destructive', title: 'Missing Information', description: 'Please select a product.' });
           return;
         }
+        const selectedProduct = storeProducts.find((p) => p.id === formState.shopifyProductId);
         await api.tourMappings.create({
           storeId: formState.storeId,
-          productTitle: formState.productTitle,
+          shopifyProductId: formState.shopifyProductId,
+          productTitle: selectedProduct?.title,
           tourCode: formState.tourCode,
         });
         toast({ title: 'Mapping Created', description: 'New tour code mapping has been created.' });
@@ -148,7 +150,7 @@ export default function TourMappingClient() {
               <div className="grid gap-1">
                 <CardTitle>Tour Code Mapping</CardTitle>
                 <CardDescription>
-                  Map Shopify product titles to internal tour codes. Updating a code propagates to all matching orders automatically.
+                  Map Shopify products to internal tour codes using the product ID (stable even when titles change). Updating a code propagates to all matching orders automatically.
                 </CardDescription>
               </div>
             </div>
@@ -164,7 +166,7 @@ export default function TourMappingClient() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Store</TableHead>
-                  <TableHead className="w-[50%]">Product Title</TableHead>
+                  <TableHead className="w-[50%]">Product</TableHead>
                   <TableHead>Tour Code</TableHead>
                   <TableHead className="w-[100px] text-right">Actions</TableHead>
                 </TableRow>
@@ -174,7 +176,10 @@ export default function TourMappingClient() {
                 {!isLoading && mappings.map((m) => (
                   <TableRow key={m.id}>
                     <TableCell><Badge variant="secondary">{m.storeId}</Badge></TableCell>
-                    <TableCell className="font-medium">{m.productTitle}</TableCell>
+                    <TableCell className="font-medium">
+                      <div>{m.productTitle || <span className="text-muted-foreground italic">No title</span>}</div>
+                      <div className="text-xs text-muted-foreground font-mono">ID: {m.shopifyProductId}</div>
+                    </TableCell>
                     <TableCell>
                       {m.tourCode
                         ? <Badge variant="outline">{m.tourCode}</Badge>
@@ -248,16 +253,19 @@ export default function TourMappingClient() {
               </Select>
             </div>
 
-            {/* Product Title */}
+            {/* Product */}
             <div className="grid grid-cols-4 items-center gap-4">
               <Label className="text-right">Product</Label>
               {editingMapping ? (
-                <Input value={formState.productTitle} disabled className="col-span-3" />
+                <div className="col-span-3">
+                  <Input value={editingMapping.productTitle ?? editingMapping.shopifyProductId} disabled />
+                  <p className="text-xs text-muted-foreground mt-1 font-mono">ID: {editingMapping.shopifyProductId}</p>
+                </div>
               ) : (
-                <div className="col-span-3 relative">
+                <div className="col-span-3">
                   <Select
-                    value={formState.productTitle}
-                    onValueChange={(v) => setFormState((s) => ({ ...s, productTitle: v }))}
+                    value={formState.shopifyProductId}
+                    onValueChange={(v) => setFormState((s) => ({ ...s, shopifyProductId: v }))}
                     disabled={productsLoading || !formState.storeId}
                   >
                     <SelectTrigger>
@@ -266,8 +274,8 @@ export default function TourMappingClient() {
                         : <SelectValue placeholder="Select a product…" />}
                     </SelectTrigger>
                     <SelectContent>
-                      {storeProducts.map((title) => (
-                        <SelectItem key={title} value={title}>{title}</SelectItem>
+                      {storeProducts.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
                       ))}
                       {!productsLoading && storeProducts.length === 0 && (
                         <div className="px-3 py-2 text-sm text-muted-foreground">No products found</div>
@@ -302,7 +310,7 @@ export default function TourMappingClient() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete mapping?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the mapping for <strong>{deletingMapping?.productTitle}</strong>.
+              This will permanently delete the mapping for <strong>{deletingMapping?.productTitle || deletingMapping?.shopifyProductId}</strong>.
               {deletingMapping?.tourCode && (
                 <> Tour code <strong>{deletingMapping.tourCode}</strong> must not be assigned to any orders — if it is, the delete will be blocked.</>
               )}

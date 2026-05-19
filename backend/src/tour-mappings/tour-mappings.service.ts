@@ -28,7 +28,7 @@ export class TourMappingsService {
 
   async findAll() {
     return await this.mappingsRepository.find({
-      order: { storeId: 'ASC', productTitle: 'ASC' },
+      order: { storeId: 'ASC', shopifyProductId: 'ASC' },
     });
   }
 
@@ -40,14 +40,14 @@ export class TourMappingsService {
     return mapping;
   }
 
-  async findByStoreAndTitle(storeId: string, productTitle: string) {
+  async findByStoreAndProductId(storeId: string, shopifyProductId: string) {
     return await this.mappingsRepository.findOne({
-      where: { storeId, productTitle },
+      where: { storeId, shopifyProductId },
     });
   }
 
-  /** Fetch all product titles from the Shopify store (used to populate the create-mapping dropdown) */
-  async getStoreProducts(storeId: string): Promise<string[]> {
+  /** Fetch all products from the Shopify store (used to populate the create-mapping dropdown) */
+  async getStoreProducts(storeId: string): Promise<{ id: string; title: string }[]> {
     const store = await this.shopifyStoresRepository.findOne({ where: { internalName: storeId } });
     if (!store) throw new NotFoundException(`Store "${storeId}" not found`);
 
@@ -59,8 +59,8 @@ export class TourMappingsService {
 
     this.logger.log(`Fetching products for store "${storeId}" from ${store.shopifyDomain} (API ${store.apiVersion})`);
 
-    const titles = new Set<string>();
-    let url: string | null = `${baseUrl}/products.json?fields=title&limit=250`;
+    const products: { id: string; title: string }[] = [];
+    let url: string | null = `${baseUrl}/products.json?fields=id,title&limit=250`;
 
     while (url) {
       const res = await fetch(url, { headers });
@@ -75,7 +75,7 @@ export class TourMappingsService {
       }
       const data = await res.json();
       for (const p of data.products || []) {
-        if (p.title) titles.add(p.title);
+        if (p.id && p.title) products.push({ id: p.id.toString(), title: p.title });
       }
 
       // Cursor-based pagination via Link header
@@ -84,26 +84,26 @@ export class TourMappingsService {
       url = next ? next[1] : null;
     }
 
-    this.logger.log(`Fetched ${titles.size} product titles for store "${storeId}"`);
-    return [...titles].sort();
+    this.logger.log(`Fetched ${products.length} products for store "${storeId}"`);
+    return products.sort((a, b) => a.title.localeCompare(b.title));
   }
 
   async create(createDto: CreateTourMappingDto) {
     const existing = await this.mappingsRepository.findOne({
-      where: { storeId: createDto.storeId, productTitle: createDto.productTitle },
+      where: { storeId: createDto.storeId, shopifyProductId: createDto.shopifyProductId },
     });
     if (existing) {
       throw new ConflictException(
-        `Mapping already exists for store ${createDto.storeId} and product "${createDto.productTitle}"`,
+        `Mapping already exists for store ${createDto.storeId} and product ID "${createDto.shopifyProductId}"`,
       );
     }
     const mapping = this.mappingsRepository.create(createDto);
     const saved = await this.mappingsRepository.save(mapping);
 
-    // Propagate to all existing orders in the same store with the matching product title
-    if (saved.tourCode) {
+    // Propagate to all existing orders in the same store with the matching Shopify product ID
+    if (saved.tourCode && saved.shopifyProductId) {
       await this.ordersRepository.update(
-        { storeId: saved.storeId, tourTitle: saved.productTitle },
+        { storeId: saved.storeId, shopifyProductId: saved.shopifyProductId },
         { tourCode: saved.tourCode },
       );
     }
@@ -122,10 +122,10 @@ export class TourMappingsService {
     Object.assign(mapping, updateDto);
     const saved = await this.mappingsRepository.save(mapping);
 
-    // Propagate code change to all orders matching this store + product title
-    if (newCode !== oldCode) {
+    // Propagate code change to all orders matching this store + Shopify product ID
+    if (newCode !== oldCode && mapping.shopifyProductId) {
       await this.ordersRepository.update(
-        { storeId: mapping.storeId, tourTitle: mapping.productTitle },
+        { storeId: mapping.storeId, shopifyProductId: mapping.shopifyProductId },
         { tourCode: newCode ?? undefined },
       );
     }

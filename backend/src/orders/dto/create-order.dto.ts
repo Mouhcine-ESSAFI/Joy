@@ -65,6 +65,10 @@ export class CreateOrderDto {
 
   @IsString()
   @IsOptional()
+  shopifyProductId?: string;
+
+  @IsString()
+  @IsOptional()
   tourCode?: string;
 
   @IsString()

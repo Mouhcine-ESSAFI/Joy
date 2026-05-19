@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, PlusCircle, Save, CalendarIcon, CreditCard, Trash2, Printer } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
-import { useOrder, useSupplements, useTransportTypes, useRoomTypeRules, useOrderHistory } from '@/lib/hooks';
+import { useOrder, useOrders, useSupplements, useTransportTypes, useRoomTypeRules, useOrderHistory } from '@/lib/hooks';
 import api from '@/lib/api-client';
 import { useEffect, useMemo, useState } from 'react';
 import { useLocalStorage } from '@/hooks/use-local-storage';
@@ -185,6 +185,9 @@ export default function OrderDetailsPage() {
   const invalidOrderId = !orderId;
 
   const { order, loading: orderLoading, error: orderError } = useOrder(orderId);
+  const { total: customerOrdersTotal } = useOrders(
+    order?.customerEmail ? { search: order.customerEmail, pageSize: 1 } : undefined
+  );
   const {
     supplements = [],
     loading: supplementsLoading,
@@ -448,13 +451,14 @@ export default function OrderDetailsPage() {
                             Orders
                           </button>
                           <span>/</span>
-                          <span className="text-foreground font-medium">{order.shopifyOrderNumber}</span>
+                          <span className="sm:text-2xl text-lg font-bold">{order.shopifyOrderNumber}</span>
                         </nav>
-                        <h1 className="text-lg sm:text-2xl font-bold tracking-tight truncate">
-                          Order {order.shopifyOrderNumber}
+                        <h1 className="text-foreground font-medium tracking-tight truncate">
+                          {order.customerName}
                         </h1>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                          {format(new Date(order.createdAt), "dd-MM-yy 'at' h:mm a")} · {order.storeId}
+                          {customerOrdersTotal > 0 && <span className="font-medium text-foreground">{customerOrdersTotal} order{customerOrdersTotal !== 1 ? 's' : ''} · {order.storeId}</span>}
+                          {format(new Date(order.createdAt), "dd-MM-yy 'at' h:mm a")}
                         </p>
                       </div>
 
@@ -532,7 +536,7 @@ export default function OrderDetailsPage() {
                 </Card>
               </div>
 
-              <div className="px-4 lg:px-6">
+              <div className="overflow-x-auto px-4 lg:px-6">
                 <div className="-mx-4 px-4 sm:mx-0 sm:px-0 border-b">
                   <TabsList className="bg-transparent p-0 -mb-px h-auto">
                     <TabsTrigger value="details" className="data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none border-b-2 border-transparent rounded-none px-3 py-2 text-sm font-medium text-muted-foreground transition-none focus-visible:ring-0">
