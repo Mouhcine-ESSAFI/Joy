@@ -604,10 +604,11 @@ export class WebhooksService {
    */
   private async fetchItineraryStops(store: any, metafields: any[]): Promise<string[]> {
     try {
-      const itineraryField = metafields.find(
-        (m) => m.namespace === 'tour_itinerary' && m.key === 'itinerary_details',
+      // Metafield path: detail.itinerary → itinerary metaobject GID
+      const itineraryMF = metafields.find(
+        (m) => m.namespace === 'detail' && m.key === 'itinerary',
       );
-      if (!itineraryField?.value) return [];
+      if (!itineraryMF?.value || !String(itineraryMF.value).startsWith('gid://')) return [];
 
       const gqlUrl = `https://${store.shopifyDomain}/admin/api/${store.apiVersion}/graphql.json`;
       const headers = {
@@ -615,22 +616,33 @@ export class WebhooksService {
         'Content-Type': 'application/json',
       };
 
-      // Single GraphQL query — resolves all 3 levels of nesting
+      // Chain: itinerary → itinerary_details[] (days) → stops[] (Stop) → Stop[] (tour_location) → name
       const query = `
         query GetItinerary($id: ID!) {
           metaobject(id: $id) {
             fields {
               key
-              references(first: 50) {
+              references(first: 30) {
                 nodes {
                   ... on Metaobject {
                     fields {
                       key
-                      reference {
-                        ... on Metaobject {
-                          fields {
-                            key
-                            value
+                      references(first: 30) {
+                        nodes {
+                          ... on Metaobject {
+                            fields {
+                              key
+                              references(first: 30) {
+                                nodes {
+                                  ... on Metaobject {
+                                    fields {
+                                      key
+                                      value
+                                    }
+                                  }
+                                }
+                              }
+                            }
                           }
                         }
                       }
@@ -646,23 +658,39 @@ export class WebhooksService {
       const res = await fetch(gqlUrl, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ query, variables: { id: itineraryField.value } }),
+        body: JSON.stringify({ query, variables: { id: itineraryMF.value } }),
       });
 
       if (!res.ok) return [];
       const json = await res.json();
 
+      // Level 1: itinerary_details → day metaobjects
       const itineraryFields: any[] = json?.data?.metaobject?.fields ?? [];
-      const citiesField = itineraryFields.find((f) => f.key === 'cities');
-      const cityNodes: any[] = citiesField?.references?.nodes ?? [];
+      const detailsField = itineraryFields.find((f) => f.key === 'itinerary_details');
+      const dayNodes: any[] = detailsField?.references?.nodes ?? [];
 
       const names: string[] = [];
-      for (const city of cityNodes) {
-        const cityFields: any[] = city.fields ?? [];
-        const locationField = cityFields.find((f) => f.key === 'tour_location');
-        const locationFields: any[] = locationField?.reference?.fields ?? [];
-        const nameField = locationFields.find((f) => f.key === 'name');
-        if (nameField?.value) names.push(String(nameField.value).trim());
+
+      for (const day of dayNodes) {
+        const dayFields: any[] = day.fields ?? [];
+
+        // Level 2: stops → Stop metaobjects
+        const stopsField = dayFields.find((f) => f.key === 'stops');
+        const stopNodes: any[] = stopsField?.references?.nodes ?? [];
+
+        for (const stop of stopNodes) {
+          const stopFields: any[] = stop.fields ?? [];
+
+          // Level 3: Stop (capital S) → tour_location metaobjects
+          const locationListField = stopFields.find((f) => f.key === 'Stop');
+          const locationNodes: any[] = locationListField?.references?.nodes ?? [];
+
+          for (const location of locationNodes) {
+            const locationFields: any[] = location.fields ?? [];
+            const nameField = locationFields.find((f) => f.key === 'name');
+            if (nameField?.value) names.push(String(nameField.value).trim());
+          }
+        }
       }
 
       return names;
@@ -674,5 +702,58 @@ export class WebhooksService {
 
   private notifyOrdersUpdated(storeId: string): void {
     this.eventsGateway.emitOrdersUpdated(storeId);
+  }
+
+  /**
+   * Backfills stops and language for existing orders using already-stored metafields.
+   * Run once after deploying the corrected itinerary path or language fetch.
+   */
+  async backfillOrders(): Promise<{ stopsUpdated: number; languageUpdated: number }> {
+    const stores = await this.shopifyStoresService.findAll();
+    const storeMap = new Map(stores.map((s) => [s.internalName, s]));
+
+    // Pre-fetch primaryLocale for all stores
+    for (const store of stores) {
+      await this.shopifyStoresService.fetchAndCachePrimaryLocale(store);
+    }
+
+    const orders = await this.ordersRepository.find();
+    let stopsUpdated = 0;
+    let languageUpdated = 0;
+
+    for (const order of orders) {
+      const store = storeMap.get(order.storeId);
+      const updates: Partial<{ stops: string | null; language: string }> = {};
+
+      // Backfill stops: only if empty and metafields are stored
+      if (!order.stops) {
+        const metafields: any[] = Array.isArray(order.shopifyMetadata?.metafields)
+          ? order.shopifyMetadata.metafields
+          : [];
+        if (metafields.length > 0 && store) {
+          const names = await this.fetchItineraryStops(store, metafields);
+          if (names.length > 0) {
+            updates.stops = JSON.stringify(names);
+            stopsUpdated++;
+          }
+        }
+      }
+
+      // Backfill language: if null or still equals the raw internalName (old default)
+      if (store?.primaryLocale) {
+        const needsUpdate = !order.language || order.language === store.internalName;
+        if (needsUpdate) {
+          updates.language = store.primaryLocale;
+          languageUpdated++;
+        }
+      }
+
+      if (Object.keys(updates).length > 0) {
+        await this.ordersRepository.update(order.id, updates);
+      }
+    }
+
+    this.logger.log(`Backfill complete — stops: ${stopsUpdated}, language: ${languageUpdated}`);
+    return { stopsUpdated, languageUpdated };
   }
 }

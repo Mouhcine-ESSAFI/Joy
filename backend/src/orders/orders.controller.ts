@@ -16,7 +16,7 @@ import { UpdateOrderDto } from './dto/update-order.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
-import { CurrentUser } from '../common/decorators/current-user.decorator'; // ⭐ ADD THIS
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { Request } from 'express';
 
 @Controller('orders')

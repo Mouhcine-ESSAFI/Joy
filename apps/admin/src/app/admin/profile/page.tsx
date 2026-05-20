@@ -15,6 +15,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { useToast } from '@/hooks/use-toast';
 import { useAuthContext } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
+import { useUnsavedChanges } from '@/hooks/use-unsaved-changes';
 import { ArrowLeft, Save, Shield, Eye, EyeOff, Trash2, RefreshCw, TriangleAlert } from 'lucide-react';
 import {
   AlertDialog,
@@ -57,6 +58,7 @@ export default function OwnerProfilePage() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [isResettingOrders, setIsResettingOrders] = useState(false);
   const [isResettingSync, setIsResettingSync] = useState(false);
+  const [isBackfilling, setIsBackfilling] = useState(false);
 
   const isOwner = currentUser?.role === UserRole.OWNER;
 
@@ -64,6 +66,8 @@ export default function OwnerProfilePage() {
     resolver: zodResolver(profileSchema),
     defaultValues: { name: '', email: '', password: '', confirmPassword: '' },
   });
+
+  const { showPrompt, confirmLeave, stayOnPage } = useUnsavedChanges(form.formState.isDirty);
 
   useEffect(() => {
     api.users.getOwnerProfile()
@@ -107,6 +111,18 @@ export default function OwnerProfilePage() {
       toast({ variant: 'destructive', title: 'Reset Failed', description: e.message });
     } finally {
       setIsResettingOrders(false);
+    }
+  }
+
+  async function handleBackfill() {
+    setIsBackfilling(true);
+    try {
+      const result = await api.maintenance.backfillOrders();
+      toast({ title: 'Backfill Complete', description: `Stops updated: ${result.stopsUpdated} · Language updated: ${result.languageUpdated}` });
+    } catch (e: any) {
+      toast({ variant: 'destructive', title: 'Backfill Failed', description: e.message });
+    } finally {
+      setIsBackfilling(false);
     }
   }
 
@@ -389,10 +405,40 @@ export default function OwnerProfilePage() {
                   </AlertDialogContent>
                 </AlertDialog>
               </div>
+
+              {/* Backfill stops & language */}
+              <div className="flex items-start justify-between gap-4 pt-2">
+                <div>
+                  <p className="text-sm font-medium">Backfill Stops &amp; Language</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Re-process itinerary stops and store language for all existing orders.</p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0"
+                  disabled={isBackfilling}
+                  onClick={handleBackfill}
+                >
+                  <RefreshCw className={`mr-2 h-3.5 w-3.5 ${isBackfilling ? 'animate-spin' : ''}`} />
+                  {isBackfilling ? 'Processing…' : 'Run Backfill'}
+                </Button>
+              </div>
             </CardContent>
           </Card>
         )}
       </div>
+      <AlertDialog open={showPrompt}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unsaved Changes</AlertDialogTitle>
+            <AlertDialogDescription>You have unsaved changes that will be lost if you leave this page.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={stayOnPage}>Stay on page</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmLeave} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Leave anyway</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppLayout>
   );
 }

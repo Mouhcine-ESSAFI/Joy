@@ -1,6 +1,9 @@
 import { Controller, Post, Body, Headers, UseGuards, HttpCode, Logger } from '@nestjs/common';
 import { WebhooksService } from './webhooks.service';
 import { ShopifyWebhookGuard } from './webhooks.guard';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 
 @Controller('webhooks/shopify')
 export class WebhooksController {
@@ -46,6 +49,14 @@ export class WebhooksController {
       this.logger.error(`❌ Error updating order: ${error.message}`);
       throw error;
     }
+  }
+
+  @Post('backfill')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('Owner')
+  @HttpCode(200)
+  backfill() {
+    return this.webhooksService.backfillOrders();
   }
 
   @Post('orders/cancelled')

@@ -11,6 +11,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { useForm, useWatch } from 'react-hook-form';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { useUnsavedChanges } from '@/hooks/use-unsaved-changes';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format } from 'date-fns';
@@ -120,6 +122,8 @@ export default function NewOrderForm() {
     },
   });
 
+  const { showPrompt, confirmLeave, stayOnPage } = useUnsavedChanges(form.formState.isDirty);
+
   // Auto-set language from store's primaryLocale when store selection changes
   const watchedStoreId = useWatch({ control: form.control, name: 'storeId' });
   const watchedCustomStoreId = useWatch({ control: form.control, name: 'customStoreId' });
@@ -181,7 +185,7 @@ export default function NewOrderForm() {
         language: values.language || null,
       };
 
-      await api.orders.create(payload);
+      await api.orders.create(payload as any);
       toast({ title: 'Order Created', description: `Manual order for ${values.customerName} created.` });
       router.back();
     } catch (e: any) {
@@ -192,7 +196,20 @@ export default function NewOrderForm() {
   }
 
   return (
-    <Form {...form}>
+    <>
+      <AlertDialog open={showPrompt}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unsaved Changes</AlertDialogTitle>
+            <AlertDialogDescription>You have unsaved changes that will be lost if you leave this page.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={stayOnPage}>Stay on page</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmLeave} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Leave anyway</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
@@ -216,14 +233,18 @@ export default function NewOrderForm() {
                 <div className="space-y-2">
                   {!useCustomStore ? (
                     <FormField control={form.control} name="storeId" render={({ field }) => (
-                      <Select onValueChange={field.onChange} value={field.value ?? ''} disabled={storesLoading}>
+                      <Select
+                        onValueChange={(v) => field.onChange(v === '__none__' ? '' : v)}
+                        value={field.value || '__none__'}
+                        disabled={storesLoading}
+                      >
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder={storesLoading ? 'Loading…' : 'Select store or leave empty'} />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="">None / Manual</SelectItem>
+                          <SelectItem value="__none__">None / Manual</SelectItem>
                           {stores.map((s) => (
                             <SelectItem key={s.id} value={s.internalName || s.id}>
                               {s.internalName || s.id}
@@ -326,14 +347,17 @@ export default function NewOrderForm() {
                   <FormField control={form.control} name="tourCode" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Tour Code</FormLabel>
-                      <Select value={field.value ?? ''} onValueChange={(v) => field.onChange(v || null)}>
+                      <Select
+                        value={field.value ?? '__none__'}
+                        onValueChange={(v) => field.onChange(v === '__none__' ? null : v)}
+                      >
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select tour…" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="">None</SelectItem>
+                          <SelectItem value="__none__">None</SelectItem>
                           {tourCodeOptions.map((m) => (
                             <SelectItem key={m.tourCode!} value={m.tourCode!}>
                               {m.tourCode} {m.productTitle ? `— ${m.productTitle}` : ''}
@@ -366,10 +390,13 @@ export default function NewOrderForm() {
                   {/* Camp Type — optional */}
                   <FormField control={form.control} name="campType" render={({ field }) => (
                     <FormItem><FormLabel>Camp Type</FormLabel>
-                      <Select value={field.value ?? ''} onValueChange={(v) => field.onChange(v || null)}>
+                      <Select
+                        value={field.value ?? '__none__'}
+                        onValueChange={(v) => field.onChange(v === '__none__' ? null : v)}
+                      >
                         <FormControl><SelectTrigger><SelectValue placeholder="None" /></SelectTrigger></FormControl>
                         <SelectContent>
-                          <SelectItem value="">None</SelectItem>
+                          <SelectItem value="__none__">None</SelectItem>
                           <SelectItem value="Comfort">Comfort</SelectItem>
                           <SelectItem value="Luxury">Luxury</SelectItem>
                           <SelectItem value="Luxury A/C">Luxury A/C</SelectItem>
@@ -434,5 +461,6 @@ export default function NewOrderForm() {
         </div>
       </form>
     </Form>
+    </>
   );
 }

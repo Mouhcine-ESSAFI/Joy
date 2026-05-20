@@ -508,6 +508,50 @@ export default function OrderDetailsPage() {
 
                       {/* Desktop action buttons */}
                       <div className="hidden sm:flex items-center gap-2 shrink-0">
+                        {order.financialStatus && (
+                          <Badge
+                            variant="secondary"
+                            className={cn(
+                              'text-xs shrink-0',
+                              order.financialStatus === 'paid' && 'bg-green-100 text-green-800',
+                              order.financialStatus === 'partially_paid' && 'bg-yellow-100 text-yellow-800',
+                              order.financialStatus === 'refunded' && 'bg-red-100 text-red-800'
+                            )}
+                          >
+                            <CreditCard className="mr-1 h-3 w-3" />
+                            {order.financialStatus.replace('_', ' ')}
+                          </Badge>
+                        )}
+
+                        <FormField
+                          control={form.control}
+                          name="status"
+                          render={({ field }) => (
+                            <FormItem>
+                              <Select value={field.value} onValueChange={field.onChange}>
+                                <FormControl>
+                                  <SelectTrigger className="h-8 text-xs w-auto min-w-[120px]">
+                                    <div className="flex items-center gap-2">
+                                      <span className={cn('h-2 w-2 rounded-full shrink-0', statusConfig[field.value])} />
+                                      <span>{field.value}</span>
+                                    </div>
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {statuses.map((s) => (
+                                    <SelectItem key={s} value={s}>
+                                      <div className="flex items-center gap-2">
+                                        <span className={cn('h-2 w-2 rounded-full', statusConfig[s])} />
+                                        <span>{s}</span>
+                                      </div>
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </FormItem>
+                          )}
+                        />
+
                         <Button
                           type="button"
                           variant="outline"
@@ -525,7 +569,7 @@ export default function OrderDetailsPage() {
                     </div>
 
                     {/* Row 2: status + financial + mobile save */}
-                    <div className="flex items-center gap-2 mt-3 flex-wrap">
+                    <div className="flex items-center gap-2 mt-3 flex-wrap sm:hidden">
                       {order.financialStatus && (
                         <Badge
                           variant="secondary"
@@ -571,7 +615,7 @@ export default function OrderDetailsPage() {
                       />
 
                       {/* Mobile save */}
-                      <Button type="submit" size="sm" disabled={isSaving || !isDirty} className="sm:hidden ml-auto">
+                      <Button type="submit" size="sm" disabled={isSaving || !isDirty} className="ml-auto">
                         <Save className="mr-1.5 h-3.5 w-3.5" />
                         {isSaving ? 'Saving…' : 'Save'}
                       </Button>

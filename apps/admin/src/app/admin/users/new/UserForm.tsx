@@ -28,6 +28,8 @@ import { Save, ChevronsUpDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useMemo } from 'react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { useUnsavedChanges } from '@/hooks/use-unsaved-changes';
 import type { User, ShopifyStore, CreateUserDto, UpdateUserDto, UserRole } from '@/lib/types';
 import api from '@/lib/api-client';
 import PermissionsForm from '../PermissionsForm';
@@ -196,8 +198,23 @@ export default function UserForm({ user, userId }: UserFormProps) {
     }
   }
 
+  const { showPrompt, confirmLeave, stayOnPage } = useUnsavedChanges(form.formState.isDirty);
+
   return (
-    <Form {...form}>
+    <>
+      <AlertDialog open={showPrompt}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unsaved Changes</AlertDialogTitle>
+            <AlertDialogDescription>You have unsaved changes that will be lost if you leave this page.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={stayOnPage}>Stay on page</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmLeave} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Leave anyway</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
             <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="John Doe" {...field} /></FormControl><FormMessage /></FormItem>)}/>
@@ -303,5 +320,6 @@ export default function UserForm({ user, userId }: UserFormProps) {
         </div>
       </form>
     </Form>
+    </>
   );
 }
