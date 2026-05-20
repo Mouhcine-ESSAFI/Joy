@@ -897,6 +897,9 @@ export default function OrderDetailsPage() {
 
                     {/* Stops route — right sidebar */}
                     {(() => {
+                      console.log('[STOPS] order.stops:', order?.stops);
+                      console.log('[STOPS] order.shopifyMetadata:', order?.shopifyMetadata);
+                      console.log('[STOPS] order.lineItemProperties:', order?.lineItemProperties);
                       function parseStops(o: typeof order): string[] {
                         if (o?.stops) {
                           try { const p = JSON.parse(o.stops); if (Array.isArray(p)) return p.map(String).filter(Boolean); } catch {}
@@ -911,6 +914,7 @@ export default function OrderDetailsPage() {
                         return [];
                       }
                       const stops = parseStops(order);
+                      console.log('[STOPS] parsed stops:', stops);
                       if (stops.length === 0) return null;
                       const arrival = (order.shopifyMetadata?.metafields ?? []).find((m: any) => ['to', 'to_', 'arrival', 'destination'].includes(m.key?.toLowerCase()))?.value
                         ?? (order.lineItemProperties?.raw ?? []).find((p: any) => ['to', 'to_', 'arrival', 'destination'].includes(p.name?.toLowerCase()))?.value;
