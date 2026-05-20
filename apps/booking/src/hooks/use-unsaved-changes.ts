@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 export function useUnsavedChanges(isDirty: boolean) {
@@ -28,10 +28,9 @@ export function useUnsavedChanges(isDirty: boolean) {
       const anchor = (e.target as HTMLElement).closest('a[href]') as HTMLAnchorElement | null;
       if (!anchor) return;
       const href = anchor.getAttribute('href') ?? '';
-      // Ignore external links, hash-only, and new-tab links
       if (!href || href.startsWith('#') || href.startsWith('http') || anchor.target === '_blank') return;
       e.preventDefault();
-      e.stopPropagation();
+      e.stopImmediatePropagation();
       pendingNavRef.current = () => { skipRef.current = true; router.push(href); };
       setShowPrompt(true);
     };
@@ -39,18 +38,24 @@ export function useUnsavedChanges(isDirty: boolean) {
     return () => document.removeEventListener('click', handler, true);
   }, [isDirty, router]);
 
-  // Handle router.back() and browser back button (both fire popstate)
+  // Handle browser back button (popstate) — capture phase to beat Next.js router
   useEffect(() => {
     if (!isDirty) return;
     const handler = () => {
       if (skipPopStateRef.current) { skipPopStateRef.current = false; return; }
-      // Re-push current state to visually cancel the navigation
       history.pushState(history.state, '', window.location.href);
       pendingNavRef.current = () => { skipPopStateRef.current = true; history.go(-1); };
       setShowPrompt(true);
     };
-    window.addEventListener('popstate', handler);
-    return () => window.removeEventListener('popstate', handler);
+    window.addEventListener('popstate', handler, true);
+    return () => window.removeEventListener('popstate', handler, true);
+  }, [isDirty]);
+
+  // Guard any programmatic navigation (e.g. router.back() button clicks)
+  const guard = useCallback((fn: () => void) => {
+    if (!isDirty) { fn(); return; }
+    pendingNavRef.current = fn;
+    setShowPrompt(true);
   }, [isDirty]);
 
   const confirmLeave = () => {
@@ -65,5 +70,5 @@ export function useUnsavedChanges(isDirty: boolean) {
     setShowPrompt(false);
   };
 
-  return { showPrompt, confirmLeave, stayOnPage };
+  return { showPrompt, confirmLeave, stayOnPage, guard };
 }

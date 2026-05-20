@@ -122,7 +122,7 @@ export default function NewOrderForm() {
     },
   });
 
-  const { showPrompt, confirmLeave, stayOnPage } = useUnsavedChanges(form.formState.isDirty);
+  const { showPrompt, confirmLeave, stayOnPage, guard } = useUnsavedChanges(form.formState.isDirty);
 
   // Auto-set language from store's primaryLocale when store selection changes
   const watchedStoreId = useWatch({ control: form.control, name: 'storeId' });
@@ -453,7 +453,7 @@ export default function NewOrderForm() {
         </div>
 
         <div className="flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={() => router.back()}>Cancel</Button>
+          <Button type="button" variant="outline" onClick={() => guard(() => router.back())}>Cancel</Button>
           <Button type="submit" disabled={isSaving}>
             <Save className="mr-2 h-4 w-4" />
             {isSaving ? 'Creating…' : 'Create Order'}

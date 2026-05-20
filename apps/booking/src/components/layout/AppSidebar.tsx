@@ -132,6 +132,8 @@ export default function AppSidebar({ isCollapsed }: { isCollapsed: boolean }) {
                     <a
                       href={adminUrl}
                       aria-label="Admin Portal"
+                      target="_blank"
+                      rel="noopener noreferrer"
                       className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                     >
                       <Building className="h-4 w-4" />
@@ -144,6 +146,8 @@ export default function AppSidebar({ isCollapsed }: { isCollapsed: boolean }) {
             ) : (
               <a
                 href={adminUrl}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="group flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-all hover:bg-muted hover:text-foreground"
               >
                 <Building className="h-4 w-4 shrink-0" />

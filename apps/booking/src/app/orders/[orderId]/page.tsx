@@ -242,7 +242,7 @@ export default function OrderDetailsPage() {
     formState: { isDirty },
   } = form;
 
-  const { showPrompt, confirmLeave, stayOnPage } = useUnsavedChanges(isDirty);
+  const { showPrompt, confirmLeave, stayOnPage, guard } = useUnsavedChanges(isDirty);
 
   const currentStatus = form.watch('status');
 
@@ -459,7 +459,7 @@ export default function OrderDetailsPage() {
                         variant="outline"
                         size="icon"
                         className="h-8 w-8 shrink-0 mt-0.5"
-                        onClick={() => router.back()}
+                        onClick={() => guard(() => router.back())}
                       >
                         <ArrowLeft className="h-4 w-4" />
                         <span className="sr-only">Back</span>
@@ -470,7 +470,7 @@ export default function OrderDetailsPage() {
                           <button
                             type="button"
                             className="hover:text-foreground transition-colors"
-                            onClick={() => router.back()}
+                            onClick={() => guard(() => router.back())}
                           >
                             Orders
                           </button>
@@ -943,43 +943,6 @@ export default function OrderDetailsPage() {
                     })()}
                     </div>{/* end flex wrapper */}
 
-                    {/* Shopify Product Data */}
-                    {(() => {
-                      const metafields: any[] = Array.isArray(order.shopifyMetadata?.metafields) ? order.shopifyMetadata.metafields : [];
-                      const properties: any[] = Array.isArray(order.lineItemProperties?.raw) ? order.lineItemProperties.raw : [];
-                      if (metafields.length === 0 && properties.length === 0) return null;
-                      return (
-                        <>
-                          <Separator />
-                          <div className="space-y-3">
-                            <p className="text-sm font-medium text-muted-foreground">Shopify Product Data</p>
-                            {metafields.length > 0 && (
-                              <div className="rounded-md border divide-y text-sm">
-                                {metafields.map((m: any, i: number) => (
-                                  <div key={i} className="flex gap-3 px-3 py-2">
-                                    <span className="font-mono text-xs text-muted-foreground w-40 shrink-0 pt-0.5">{m.namespace}.{m.key}</span>
-                                    <span className="break-all">{String(m.value ?? '')}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                            {properties.length > 0 && (
-                              <div className="space-y-1">
-                                <p className="text-xs text-muted-foreground font-medium">Line Item Properties</p>
-                                <div className="rounded-md border divide-y text-sm">
-                                  {properties.map((p: any, i: number) => (
-                                    <div key={i} className="flex gap-3 px-3 py-2">
-                                      <span className="text-muted-foreground w-40 shrink-0">{p.name}</span>
-                                      <span>{String(p.value ?? '')}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </>
-                      );
-                    })()}
                   </CardContent>
                 </Card>
               </TabsContent>

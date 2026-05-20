@@ -723,7 +723,7 @@ export class WebhooksService {
 
     for (const order of orders) {
       const store = storeMap.get(order.storeId);
-      const updates: Partial<{ stops: string | null; language: string }> = {};
+      const updates: Partial<{ stops: string; language: string }> = {};
 
       // Backfill stops: only if empty and metafields are stored
       if (!order.stops) {
