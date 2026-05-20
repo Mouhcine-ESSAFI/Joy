@@ -734,16 +734,19 @@ export class WebhooksService {
     }
 
     const orders = await this.ordersRepository.find();
+    this.logger.log(`[BACKFILL] Total orders: ${orders.length}, stores in map: ${[...storeMap.keys()].join(', ')}`);
     let stopsUpdated = 0;
     let languageUpdated = 0;
 
     for (const order of orders) {
       const store = storeMap.get(order.storeId);
+      this.logger.log(`[BACKFILL] Order ${order.shopifyOrderNumber} | storeId="${order.storeId}" | storeFound=${!!store} | productId="${order.shopifyProductId}" | hasStops=${!!order.stops} | lang="${order.language}"`);
       const updates: Partial<{ stops: string; language: string }> = {};
 
       // Backfill stops: re-fetch metafields from Shopify using stored productId
       if (!order.stops && store && order.shopifyProductId) {
         const metafields = await this.fetchProductMetafields(store, order.shopifyProductId);
+        this.logger.log(`[BACKFILL] Order ${order.shopifyOrderNumber} metafields count: ${metafields.length} | keys: ${metafields.map((m) => `${m.namespace}.${m.key}`).join(', ')}`);
         if (metafields.length > 0) {
           const names = await this.fetchItineraryStops(store, metafields);
           if (names.length > 0) {
