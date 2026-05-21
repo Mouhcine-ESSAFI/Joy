@@ -743,9 +743,11 @@ export class WebhooksService {
       this.logger.log(`[BACKFILL] Order ${order.shopifyOrderNumber} | storeId="${order.storeId}" | storeFound=${!!store} | productId="${order.shopifyProductId}" | hasStops=${!!order.stops} | lang="${order.language}"`);
       const updates: Partial<{ stops: string; language: string }> = {};
 
-      // Backfill stops: re-fetch metafields from Shopify using stored productId
-      if (!order.stops && store && order.shopifyProductId) {
-        const metafields = await this.fetchProductMetafields(store, order.shopifyProductId);
+      // Backfill stops: use already-stored metafields (they contain the itinerary GID)
+      if (!order.stops && store) {
+        const metafields: any[] = Array.isArray(order.shopifyMetadata?.metafields)
+          ? order.shopifyMetadata.metafields
+          : [];
         this.logger.log(`[BACKFILL] Order ${order.shopifyOrderNumber} metafields count: ${metafields.length} | keys: ${metafields.map((m) => `${m.namespace}.${m.key}`).join(', ')}`);
         if (metafields.length > 0) {
           const names = await this.fetchItineraryStops(store, metafields);
