@@ -9,6 +9,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { CustomersService } from '../shopify-customers/customers.service';
 import { EventsGateway } from '../events/events.gateway';
 import { ShopifyParserService } from '../shopify-parser/shopify-parser.service';
+import { TourMappingsService } from '../tour-mappings/tour-mappings.service';
 
 @Injectable()
 export class WebhooksService {
@@ -25,6 +26,7 @@ export class WebhooksService {
     private customersService: CustomersService,
     private eventsGateway: EventsGateway,
     private shopifyParserService: ShopifyParserService,
+    private tourMappingsService: TourMappingsService,
   ) {}
 
   async handleOrderCreate(payload: any, shopDomain: string): Promise<void> {
@@ -604,41 +606,41 @@ export class WebhooksService {
    */
   private async fetchItineraryStops(store: any, metafields: any[]): Promise<string[]> {
     try {
-      // Metafield path: detail.itinerary → itinerary metaobject GID
       const itineraryMF = metafields.find(
         (m) => m.namespace === 'detail' && m.key === 'itinerary',
       );
       if (!itineraryMF?.value || !String(itineraryMF.value).startsWith('gid://')) return [];
 
       const gqlUrl = `https://${store.shopifyDomain}/admin/api/${store.apiVersion}/graphql.json`;
-      const headers = {
-        'X-Shopify-Access-Token': store.accessToken,
-        'Content-Type': 'application/json',
-      };
+      const headers = { 'X-Shopify-Access-Token': store.accessToken, 'Content-Type': 'application/json' };
 
-      // Chain: itinerary → itinerary_details[] (days) → stops[] (Stop) → Stop[] (tour_location) → name
+      // Fetch full 4-level structure with type + value at every level
       const query = `
         query GetItinerary($id: ID!) {
           metaobject(id: $id) {
+            type
             fields {
               key
+              value
               references(first: 30) {
                 nodes {
                   ... on Metaobject {
+                    type
                     fields {
                       key
+                      value
                       references(first: 30) {
                         nodes {
                           ... on Metaobject {
+                            type
                             fields {
                               key
+                              value
                               references(first: 30) {
                                 nodes {
                                   ... on Metaobject {
-                                    fields {
-                                      key
-                                      value
-                                    }
+                                    type
+                                    fields { key value }
                                   }
                                 }
                               }
@@ -662,51 +664,63 @@ export class WebhooksService {
       });
 
       if (!res.ok) {
-        this.logger.warn(`fetchItineraryStops: GraphQL request failed ${res.status}`);
+        this.logger.warn(`fetchItineraryStops: GraphQL ${res.status}`);
         return [];
       }
       const json = await res.json();
+      const metaobject = json?.data?.metaobject;
 
-      this.logger.log(`[STOPS_DEBUG] Raw GraphQL response: ${JSON.stringify(json?.data?.metaobject)}`);
+      this.logger.log(`[STOPS] Root type="${metaobject?.type}" fields: ${(metaobject?.fields ?? []).map((f: any) => f.key).join(', ')}`);
 
-      // Level 1: itinerary_details → day metaobjects
-      const itineraryFields: any[] = json?.data?.metaobject?.fields ?? [];
-      this.logger.log(`[STOPS_DEBUG] Level1 keys: ${itineraryFields.map((f) => f.key).join(', ')}`);
-
-      const detailsField = itineraryFields.find((f) => f.key === 'itinerary_details');
-      const dayNodes: any[] = detailsField?.references?.nodes ?? [];
-      this.logger.log(`[STOPS_DEBUG] Day nodes count: ${dayNodes.length}`);
-
+      const rootFields: any[] = metaobject?.fields ?? [];
       const names: string[] = [];
 
-      for (const [di, day] of dayNodes.entries()) {
-        const dayFields: any[] = day.fields ?? [];
-        this.logger.log(`[STOPS_DEBUG] Day[${di}] keys: ${dayFields.map((f) => f.key).join(', ')}`);
+      // Level 1: any field with child nodes (days)
+      for (const l1 of rootFields) {
+        const dayNodes: any[] = l1?.references?.nodes ?? [];
+        if (dayNodes.length === 0) continue;
+        this.logger.log(`[STOPS] L1 key="${l1.key}" → ${dayNodes.length} nodes`);
 
-        // Level 2: stops → Stop metaobjects
-        const stopsField = dayFields.find((f) => f.key === 'stops');
-        const stopNodes: any[] = stopsField?.references?.nodes ?? [];
-        this.logger.log(`[STOPS_DEBUG] Day[${di}] stop nodes count: ${stopNodes.length}`);
+        for (const [di, day] of dayNodes.entries()) {
+          const dayFields: any[] = day?.fields ?? [];
+          this.logger.log(`[STOPS] Day[${di}] type="${day?.type}" fields: ${dayFields.map((f: any) => f.key).join(', ')}`);
 
-        for (const [si, stop] of stopNodes.entries()) {
-          const stopFields: any[] = stop.fields ?? [];
-          this.logger.log(`[STOPS_DEBUG] Day[${di}] Stop[${si}] keys: ${stopFields.map((f) => f.key).join(', ')}`);
+          // Level 2: any field with child nodes (stops), or direct name
+          for (const l2 of dayFields) {
+            const stopNodes: any[] = l2?.references?.nodes ?? [];
+            if (stopNodes.length === 0) continue;
+            this.logger.log(`[STOPS] Day[${di}] L2 key="${l2.key}" → ${stopNodes.length} nodes`);
 
-          // Level 3: Stop (capital S) → tour_location metaobjects
-          const locationListField = stopFields.find((f) => f.key === 'Stop');
-          const locationNodes: any[] = locationListField?.references?.nodes ?? [];
-          this.logger.log(`[STOPS_DEBUG] Day[${di}] Stop[${si}] location nodes count: ${locationNodes.length}`);
+            for (const [si, stop] of stopNodes.entries()) {
+              const stopFields: any[] = stop?.fields ?? [];
+              this.logger.log(`[STOPS] Stop[${si}] type="${stop?.type}" fields: ${JSON.stringify(stopFields)}`);
 
-          for (const location of locationNodes) {
-            const locationFields: any[] = location.fields ?? [];
-            this.logger.log(`[STOPS_DEBUG] Location fields: ${JSON.stringify(locationFields)}`);
-            const nameField = locationFields.find((f) => f.key === 'name');
-            if (nameField?.value) names.push(String(nameField.value).trim());
+              // Check if stop itself has a name/title
+              const directName = stopFields.find((f: any) => ['name', 'title', 'label'].includes(f.key));
+              if (directName?.value) {
+                names.push(String(directName.value).trim());
+                continue;
+              }
+
+              // Level 3: any field with child nodes (locations)
+              for (const l3 of stopFields) {
+                const locationNodes: any[] = l3?.references?.nodes ?? [];
+                if (locationNodes.length === 0) continue;
+                this.logger.log(`[STOPS] Stop[${si}] L3 key="${l3.key}" → ${locationNodes.length} nodes`);
+
+                for (const location of locationNodes) {
+                  const locationFields: any[] = location?.fields ?? [];
+                  this.logger.log(`[STOPS] Location type="${location?.type}" fields: ${JSON.stringify(locationFields)}`);
+                  const nameField = locationFields.find((f: any) => ['name', 'title', 'label'].includes(f.key));
+                  if (nameField?.value) names.push(String(nameField.value).trim());
+                }
+              }
+            }
           }
         }
       }
 
-      this.logger.log(`[STOPS_DEBUG] Final names: ${JSON.stringify(names)}`);
+      this.logger.log(`[STOPS] Final names: ${JSON.stringify(names)}`);
       return names;
     } catch (err: any) {
       this.logger.warn(`fetchItineraryStops failed: ${err?.message}`);
@@ -737,11 +751,12 @@ export class WebhooksService {
     this.logger.log(`[BACKFILL] Total orders: ${orders.length}, stores in map: ${[...storeMap.keys()].join(', ')}`);
     let stopsUpdated = 0;
     let languageUpdated = 0;
+    let tourCodesUpdated = 0;
 
     for (const order of orders) {
       const store = storeMap.get(order.storeId);
-      this.logger.log(`[BACKFILL] Order ${order.shopifyOrderNumber} | storeId="${order.storeId}" | storeFound=${!!store} | productId="${order.shopifyProductId}" | hasStops=${!!order.stops} | lang="${order.language}"`);
-      const updates: Partial<{ stops: string; language: string }> = {};
+      this.logger.log(`[BACKFILL] Order ${order.shopifyOrderNumber} | storeId="${order.storeId}" | storeFound=${!!store} | productId="${order.shopifyProductId}" | hasStops=${!!order.stops} | tourCode="${order.tourCode}" | lang="${order.language}"`);
+      const updates: Partial<{ stops: string; language: string; tourCode: string }> = {};
 
       // Backfill stops: use already-stored metafields (they contain the itinerary GID)
       if (!order.stops && store) {
@@ -767,12 +782,26 @@ export class WebhooksService {
         }
       }
 
+      // Backfill tour code: if missing and product ID is stored
+      if (!order.tourCode && order.storeId && order.shopifyProductId) {
+        try {
+          const mapping = await this.tourMappingsService.findByStoreAndProductId(
+            order.storeId,
+            order.shopifyProductId,
+          );
+          if (mapping?.tourCode) {
+            updates.tourCode = mapping.tourCode;
+            tourCodesUpdated++;
+          }
+        } catch {}
+      }
+
       if (Object.keys(updates).length > 0) {
         await this.ordersRepository.update(order.id, updates);
       }
     }
 
-    this.logger.log(`Backfill complete — stops: ${stopsUpdated}, language: ${languageUpdated}`);
-    return { stopsUpdated, languageUpdated };
+    this.logger.log(`Backfill complete — stops: ${stopsUpdated}, language: ${languageUpdated}, tourCodes: ${tourCodesUpdated}`);
+    return { stopsUpdated, languageUpdated, tourCodesUpdated };
   }
 }

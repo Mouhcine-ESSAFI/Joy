@@ -138,13 +138,13 @@ export class TourMappingsService {
     const mapping = await this.mappingsRepository.findOne({ where: { id } });
     if (!mapping) throw new NotFoundException('Tour mapping not found');
 
-    if (mapping.tourCode) {
+    if (mapping.shopifyProductId) {
       const inUse = await this.ordersRepository.count({
-        where: { storeId: mapping.storeId, tourCode: mapping.tourCode },
+        where: { storeId: mapping.storeId, shopifyProductId: mapping.shopifyProductId },
       });
       if (inUse > 0) {
         throw new ConflictException(
-          `Cannot delete: tour code "${mapping.tourCode}" is assigned to ${inUse} order(s). Reassign or clear those orders first.`,
+          `Cannot delete: tour code "${mapping.tourCode}" is linked to ${inUse} order(s). Reassign those orders first.`,
         );
       }
     }

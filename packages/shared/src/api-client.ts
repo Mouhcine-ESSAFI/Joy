@@ -447,7 +447,7 @@ import { isApiError } from './types';
       client.post<{ success: boolean; message: string; resetAt: string }>('/maintenance/reset-sync'),
 
     backfillOrders: () =>
-      client.post<{ stopsUpdated: number; languageUpdated: number }>('/webhooks/shopify/backfill'),
+      client.post<{ stopsUpdated: number; languageUpdated: number; tourCodesUpdated: number }>('/webhooks/shopify/backfill'),
   };
 
   // ============================================

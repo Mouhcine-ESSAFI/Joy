@@ -118,7 +118,7 @@ export default function OwnerProfilePage() {
     setIsBackfilling(true);
     try {
       const result = await api.maintenance.backfillOrders();
-      toast({ title: 'Backfill Complete', description: `Stops updated: ${result.stopsUpdated} · Language updated: ${result.languageUpdated}` });
+      toast({ title: 'Backfill Complete', description: `Stops: ${result.stopsUpdated} · Language: ${result.languageUpdated} · Tour codes: ${result.tourCodesUpdated}` });
     } catch (e: any) {
       toast({ variant: 'destructive', title: 'Backfill Failed', description: e.message });
     } finally {
@@ -409,8 +409,8 @@ export default function OwnerProfilePage() {
               {/* Backfill stops & language */}
               <div className="flex items-start justify-between gap-4 pt-2">
                 <div>
-                  <p className="text-sm font-medium">Backfill Stops &amp; Language</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Re-process itinerary stops and store language for all existing orders.</p>
+                  <p className="text-sm font-medium">Backfill Orders</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Re-process itinerary stops, store language, and tour codes for all existing orders.</p>
                 </div>
                 <Button
                   variant="outline"

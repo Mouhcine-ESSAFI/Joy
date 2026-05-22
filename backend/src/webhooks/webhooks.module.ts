@@ -11,6 +11,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { CustomersModule } from '../shopify-customers/customers.module';
 import { EventsModule } from '../events/events.module';
 import { ShopifyParserModule } from '../shopify-parser/shopify-parser.module';
+import { TourMappingsModule } from '../tour-mappings/tour-mappings.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { ShopifyParserModule } from '../shopify-parser/shopify-parser.module';
     CustomersModule,
     EventsModule,
     ShopifyParserModule,
+    TourMappingsModule,
   ],
   controllers: [WebhooksController],
   providers: [WebhooksService],
