@@ -737,7 +737,7 @@ export class WebhooksService {
    * Re-fetches metafields from Shopify API (not from stored data) so it works
    * even for orders created before metafields were stored correctly.
    */
-  async backfillOrders(): Promise<{ stopsUpdated: number; languageUpdated: number }> {
+  async backfillOrders(): Promise<{ stopsUpdated: number; languageUpdated: number; tourCodesUpdated: number }> {
     const stores = await this.shopifyStoresService.findAll();
 
     // Fetch and cache primaryLocale for each store, then re-read updated entity
