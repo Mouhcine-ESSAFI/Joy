@@ -31,6 +31,7 @@ import type { TransportType, TourMapping } from '@/lib/types';
 const orderSchema = z.object({
   status: z.enum(['New', 'Updated', 'Completed', 'Processed', 'Canceled']).default('New'),
   customerName: z.string().min(1, 'Customer name is required'),
+  customerCompany: z.string().optional().nullable(),
   customerEmail: z.string().optional().refine(
     (val) => !val || z.string().email().safeParse(val).success,
     { message: 'Invalid email address' }
@@ -70,6 +71,7 @@ export default function NewOrderForm() {
   const [tourMappings, setTourMappings] = useState<TourMapping[]>([]);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [useCustomStore, setUseCustomStore] = useState(false);
+  const [selectedMappingId, setSelectedMappingId] = useState<string | null>(null);
 
   useEffect(() => {
     api.transportTypes.listActive().then(setTransportTypes).catch(() => {});
@@ -85,20 +87,12 @@ export default function NewOrderForm() {
       .catch(() => {});
   }, []);
 
-  // Unique tour codes across all stores
-  const tourCodeOptions = Array.from(
-    new Map(
-      tourMappings
-        .filter((m) => m.tourCode)
-        .map((m) => [m.tourCode!, m])
-    ).values()
-  ).sort((a, b) => (a.tourCode ?? '').localeCompare(b.tourCode ?? ''));
-
   const form = useForm<OrderFormValues>({
     resolver: zodResolver(orderSchema),
     defaultValues: {
       status: 'New',
       customerName: '',
+      customerCompany: '',
       customerEmail: '',
       customerPhone: '',
       storeId: '',
@@ -139,6 +133,11 @@ export default function NewOrderForm() {
     }
   }, [watchedStoreId, watchedCustomStoreId, useCustomStore, stores]);
 
+  // Mappings for the currently selected store (empty when custom store or no store)
+  const storeMappings = tourMappings.filter(
+    (m) => !useCustomStore && watchedStoreId && m.storeId === watchedStoreId,
+  );
+
   async function onSubmit(values: OrderFormValues) {
     setIsSaving(true);
     try {
@@ -153,13 +152,19 @@ export default function NewOrderForm() {
         shopifyLineItemId: 'MANUAL-LINE-' + Date.now(),
 
         customerName: values.customerName,
+        customerCompany: values.customerCompany || null,
         customerEmail: values.customerEmail || null,
         customerPhone: values.customerPhone || null,
 
         storeId: resolvedStoreId,
 
         tourCode: values.tourCode || null,
-        tourTitle: values.tourCode ? `Manual Order - ${values.tourCode}` : 'Manual Order',
+        ...(() => {
+          const m = storeMappings.find((x) => x.id === selectedMappingId);
+          return m
+            ? { shopifyProductId: m.shopifyProductId, tourTitle: m.productTitle }
+            : { tourTitle: values.tourCode ? `Manual - ${values.tourCode}` : 'Manual Order' };
+        })(),
         tourType: values.tourType,
         tourDate: format(values.tourDate, 'yyyy-MM-dd'),
         tourHour: values.tourHour || '07:00',
@@ -219,6 +224,9 @@ export default function NewOrderForm() {
             <CardContent className="space-y-4">
               <FormField control={form.control} name="customerName" render={({ field }) => (
                 <FormItem><FormLabel>Full Name *</FormLabel><FormControl><Input {...field} placeholder="John Doe" /></FormControl><FormMessage /></FormItem>
+              )} />
+              <FormField control={form.control} name="customerCompany" render={({ field }) => (
+                <FormItem><FormLabel>Company</FormLabel><FormControl><Input {...field} value={field.value ?? ''} placeholder="Company name (optional)" /></FormControl><FormMessage /></FormItem>
               )} />
               <FormField control={form.control} name="customerEmail" render={({ field }) => (
                 <FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" {...field} placeholder="john@example.com" /></FormControl><FormMessage /></FormItem>
@@ -343,31 +351,44 @@ export default function NewOrderForm() {
                     <FormItem><FormLabel>Passengers (PAX) *</FormLabel><FormControl><Input type="number" min="1" {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
 
-                  {/* Tour Code — select from all mappings */}
-                  <FormField control={form.control} name="tourCode" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Tour Code</FormLabel>
-                      <Select
-                        value={field.value ?? '__none__'}
-                        onValueChange={(v) => field.onChange(v === '__none__' ? null : v)}
-                      >
+                  {/* Tour — store-filtered list or custom text if custom store */}
+                  <FormItem>
+                    <FormLabel>Tour</FormLabel>
+                    {useCustomStore || storeMappings.length === 0 ? (
+                      <FormField control={form.control} name="tourCode" render={({ field }) => (
                         <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select tour…" />
-                          </SelectTrigger>
+                          <Input {...field} value={field.value ?? ''} placeholder="Tour code e.g. MARR3D" className="font-mono" />
                         </FormControl>
+                      )} />
+                    ) : (
+                      <Select
+                        value={selectedMappingId ?? '__none__'}
+                        onValueChange={(v) => {
+                          if (v === '__none__') {
+                            setSelectedMappingId(null);
+                            form.setValue('tourCode', null, { shouldDirty: true });
+                          } else {
+                            const m = storeMappings.find((x) => x.id === v);
+                            setSelectedMappingId(v);
+                            form.setValue('tourCode', m?.tourCode ?? null, { shouldDirty: true });
+                          }
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select tour…" />
+                        </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="__none__">None</SelectItem>
-                          {tourCodeOptions.map((m) => (
-                            <SelectItem key={m.tourCode!} value={m.tourCode!}>
-                              {m.tourCode} {m.productTitle ? `— ${m.productTitle}` : ''}
+                          <SelectItem value="__none__">— None —</SelectItem>
+                          {storeMappings.map((m) => (
+                            <SelectItem key={m.id} value={m.id}>
+                              {m.productTitle}
+                              {m.tourCode && <span className="ml-2 text-xs text-muted-foreground font-mono">({m.tourCode})</span>}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
+                    )}
+                  </FormItem>
 
                   {/* Tour Type */}
                   <FormField control={form.control} name="tourType" render={({ field }) => (

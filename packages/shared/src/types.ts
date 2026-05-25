@@ -118,6 +118,7 @@ export interface Order {
   
   // Customer Information
   customerName: string;
+  customerCompany: string | null;
   customerEmail: string;
   customerPhone: string | null;
   billingPhone: string | null;
@@ -208,6 +209,7 @@ export interface CreateOrderDto {
   storeId: string;
   shopifyCreatedAt?: string;
   customerName: string;
+  customerCompany?: string;
   customerEmail: string;
   customerPhone?: string;
   tourDate?: string;

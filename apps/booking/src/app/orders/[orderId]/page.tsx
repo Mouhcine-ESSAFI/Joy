@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, PlusCircle, Save, CalendarIcon, CreditCard, Trash2, Printer } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
-import { useOrder, useOrders, useSupplements, useTransportTypes, useRoomTypeRules, useOrderHistory } from '@/lib/hooks';
+import { useOrder, useOrders, useSupplements, useTransportTypes, useRoomTypeRules, useOrderHistory, useTourMappings } from '@/lib/hooks';
 import api from '@/lib/api-client';
 import { useEffect, useMemo, useState } from 'react';
 import { useLocalStorage } from '@/hooks/use-local-storage';
@@ -140,6 +140,7 @@ function DriverHistoryTab({ orderId, orderNumber }: { orderId: string; orderNumb
 const orderSchema = z.object({
   status: z.enum(['New', 'Updated', 'Completed', 'Processed', 'Canceled']),
   customerName: z.string().min(1, 'Customer name is required'),
+  customerCompany: z.string().optional().nullable(),
   customerEmail: z.string().email().optional().or(z.literal('')),
   customerPhone: z.string().optional().nullable(),
   language: z.string().optional().nullable(),
@@ -152,6 +153,7 @@ const orderSchema = z.object({
   tourDate: z.date().nullable(),
   tourHour: z.string().optional().nullable(),
   tourType: z.enum(['Shared', 'Private']).nullable(),
+  tourCode: z.string().optional().nullable(),
   campType: z.string().optional().nullable(),
   roomType: z.string().optional().nullable(),
   accommodationName: z.string().optional().nullable(),
@@ -209,9 +211,18 @@ export default function OrderDetailsPage() {
 
   const { roomRules, loading: roomRulesLoading } = useRoomTypeRules();
 
+  const { tourMappings } = useTourMappings();
+  // Only mappings for the same store as this order
+  const storeMappings = useMemo(
+    () => tourMappings.filter((m) => m.storeId === order?.storeId && m.productTitle),
+    [tourMappings, order?.storeId],
+  );
+
   const [isSupplementFormOpen, setSupplementFormOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
+  // selectedMappingId drives the Tour select — null means "keep existing / no change"
+  const [selectedMappingId, setSelectedMappingId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useLocalStorage('order-detail-tab', 'details');
   const [formInitialized, setFormInitialized] = useState(false);
 
@@ -220,6 +231,7 @@ export default function OrderDetailsPage() {
     defaultValues: {
       status: 'New',
       customerName: '',
+      customerCompany: null,
       customerEmail: '',
       customerPhone: '',
       language: null,
@@ -230,6 +242,7 @@ export default function OrderDetailsPage() {
       tourDate: null,
       tourHour: '',
       tourType: null,
+      tourCode: null,
       campType: '',
       roomType: '',
       accommodationName: '',
@@ -268,6 +281,7 @@ export default function OrderDetailsPage() {
     form.reset({
       status: (order.status || 'New') as StatusValue,
       customerName: order.customerName ?? '',
+      customerCompany: order.customerCompany ?? null,
       customerEmail: order.customerEmail ?? '',
       customerPhone: order.customerPhone ?? '',
       language: order.language ?? order.storeId ?? null,
@@ -276,6 +290,7 @@ export default function OrderDetailsPage() {
       note: order.note ?? '',
       comment: order.comment ?? '',
 
+      tourCode: order.tourCode ?? null,
       tourDate: order.tourDate ? new Date(order.tourDate) : null,
       tourHour: order.tourHour ?? '',
       tourType: order.tourType ? (order.tourType as 'Shared' | 'Private') : null,
@@ -285,8 +300,11 @@ export default function OrderDetailsPage() {
       pickupLocation: order.pickupLocation ?? '',
       pax: Number(order.pax || 1),
     });
+    // Pre-select the mapping that matches the current tour code
+    const match = storeMappings.find((m) => m.tourCode === order.tourCode);
+    setSelectedMappingId(match?.id ?? null);
     setFormInitialized(true);
-  }, [order, orderLoading, transportLoading, roomRulesLoading, form]);
+  }, [order, orderLoading, transportLoading, roomRulesLoading, form, storeMappings]);
 
   useEffect(() => {
     const err = orderError || supplementsError || transportsError;
@@ -320,6 +338,7 @@ export default function OrderDetailsPage() {
       status: values.status,
 
       customerName: values.customerName,
+      customerCompany: cleanString(values.customerCompany),
       customerEmail: cleanString(values.customerEmail),
       customerPhone: cleanString(values.customerPhone),
 
@@ -333,6 +352,11 @@ export default function OrderDetailsPage() {
       tourHour: cleanString(values.tourHour),
       tourType: values.tourType ?? null,
 
+      tourCode: cleanString(values.tourCode),
+      ...(selectedMappingId && (() => {
+        const m = storeMappings.find((x) => x.id === selectedMappingId);
+        return m ? { shopifyProductId: m.shopifyProductId, tourTitle: m.productTitle } : {};
+      })()),
       campType: cleanString(values.campType),
       roomType: cleanString(values.roomType),
       accommodationName: cleanString(values.accommodationName),
@@ -687,7 +711,7 @@ export default function OrderDetailsPage() {
                                   mode="single"
                                   selected={field.value ?? undefined}
                                   onSelect={(d) => { field.onChange(d ?? null); setCalendarOpen(false); }}
-                                  initialFocus
+                                  autoFocus
                                 />
                               </PopoverContent>
                             </Popover>
@@ -747,6 +771,37 @@ export default function OrderDetailsPage() {
                         )}
                       />
 
+                      {/* Tour selector — product titles from this order's store */}
+                      <FormItem>
+                        <FormLabel>Tour</FormLabel>
+                        <Select
+                          value={selectedMappingId ?? '__none__'}
+                          onValueChange={(v) => {
+                            if (v === '__none__') {
+                              setSelectedMappingId(null);
+                              form.setValue('tourCode', null, { shouldDirty: true });
+                            } else {
+                              const m = storeMappings.find((x) => x.id === v);
+                              setSelectedMappingId(v);
+                              form.setValue('tourCode', m?.tourCode ?? null, { shouldDirty: true });
+                            }
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select tour…" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">— No change —</SelectItem>
+                            {storeMappings.map((m) => (
+                              <SelectItem key={m.id} value={m.id}>
+                                {m.productTitle}
+                                {m.tourCode && <span className="ml-2 text-xs text-muted-foreground font-mono">({m.tourCode})</span>}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </FormItem>
+
                       <FormField
                         control={form.control}
                         name="campType"
@@ -770,13 +825,14 @@ export default function OrderDetailsPage() {
                             <FormControl>
                               {roomTypeOptions.length > 0 ? (
                                 <Select
-                                  value={field.value ?? ''}
-                                  onValueChange={field.onChange}
+                                  value={field.value ?? '__none__'}
+                                  onValueChange={(v) => field.onChange(v === '__none__' ? null : v)}
                                 >
                                   <SelectTrigger>
                                     <SelectValue placeholder="Select room type" />
                                   </SelectTrigger>
                                   <SelectContent>
+                                    <SelectItem value="__none__">— None —</SelectItem>
                                     {[...new Set([...(field.value ? [field.value] : []), ...roomTypeOptions])].map((opt) => (
                                       <SelectItem key={opt} value={opt}>{opt}</SelectItem>
                                     ))}
@@ -973,6 +1029,20 @@ export default function OrderDetailsPage() {
 
                     <FormField
                       control={form.control}
+                      name="customerCompany"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Company</FormLabel>
+                          <FormControl>
+                            <Input {...field} value={field.value ?? ''} placeholder="Company name (optional)" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
                       name="customerEmail"
                       render={({ field }) => (
                         <FormItem>
@@ -991,9 +1061,24 @@ export default function OrderDetailsPage() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Phone</FormLabel>
-                          <FormControl>
-                            <Input {...field} value={field.value ?? ''} />
-                          </FormControl>
+                          <div className="flex gap-2 items-center">
+                            <FormControl>
+                              <Input {...field} value={field.value ?? ''} />
+                            </FormControl>
+                            {field.value && (
+                              <a
+                                href={`https://wa.me/${field.value.replace(/\D/g, '')}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="shrink-0 text-green-600 hover:text-green-700"
+                                title="Open in WhatsApp"
+                              >
+                                <svg viewBox="0 0 24 24" className="h-5 w-5 fill-current" xmlns="http://www.w3.org/2000/svg">
+                                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                                </svg>
+                              </a>
+                            )}
+                          </div>
                           <FormMessage />
                         </FormItem>
                       )}

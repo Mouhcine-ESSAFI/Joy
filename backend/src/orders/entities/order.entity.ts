@@ -87,6 +87,9 @@ export class Order {
   @Column()
   customerName: string;
 
+  @Column({ nullable: true })
+  customerCompany: string;
+
   @Column()
   @Index()
   customerEmail: string;
