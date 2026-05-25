@@ -14,6 +14,7 @@ import { User } from '../../users/entities/user.entity';
 import { Supplement } from '../../supplements/entities/supplement.entity';
 import { OrderHistory } from './order-history.entity';
 import { TransportType } from '../../transport-types/entities/transport-type.entity';
+import { TourCodeMapping } from '../../tour-mappings/entities/tour-mapping.entity';
 
 export enum OrderStatus {
   NEW = 'New',
@@ -117,6 +118,14 @@ export class Order {
   @Column({ nullable: true })
   @Index()
   tourCode: string;
+
+  @Column({ type: 'uuid', nullable: true })
+  @Index()
+  tourMappingId: string | null;
+
+  @ManyToOne(() => TourCodeMapping, { nullable: true, eager: false, createForeignKeyConstraints: false })
+  @JoinColumn({ name: 'tourMappingId' })
+  tourMapping: TourCodeMapping;
 
   @Column()
   tourTitle: string;

@@ -162,6 +162,11 @@ export class CreateOrderDto {
   @IsOptional()
   language?: string;
 
+  // Tour Mapping FK
+  @IsUUID()
+  @IsOptional()
+  tourMappingId?: string | null;
+
   // Driver Assignment
   @IsUUID()
   @IsOptional()

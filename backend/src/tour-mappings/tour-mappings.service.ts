@@ -32,6 +32,13 @@ export class TourMappingsService {
     });
   }
 
+  async findByStore(storeId: string) {
+    return await this.mappingsRepository.find({
+      where: { storeId },
+      order: { productTitle: 'ASC' },
+    });
+  }
+
   async findOne(id: string) {
     const mapping = await this.mappingsRepository.findOne({ where: { id } });
     if (!mapping) {
@@ -111,7 +118,7 @@ export class TourMappingsService {
     return saved;
   }
 
-  /** Update tour code. If the code changes, propagate to all matching orders in the same store. */
+  /** Update tour code. If the code changes, propagate to all orders linked by FK. */
   async update(id: string, updateDto: UpdateTourMappingDto) {
     const mapping = await this.mappingsRepository.findOne({ where: { id } });
     if (!mapping) throw new NotFoundException('Tour mapping not found');
@@ -122,29 +129,48 @@ export class TourMappingsService {
     Object.assign(mapping, updateDto);
     const saved = await this.mappingsRepository.save(mapping);
 
-    // Propagate code change to all orders matching this store + Shopify product ID
-    if (newCode !== oldCode && mapping.shopifyProductId) {
+    if (newCode !== oldCode) {
+      // Primary: update orders linked via FK
       await this.ordersRepository.update(
-        { storeId: mapping.storeId, shopifyProductId: mapping.shopifyProductId },
+        { tourMappingId: mapping.id },
         { tourCode: newCode ?? undefined },
       );
+      // Fallback: update legacy orders not yet linked via FK but matched by shopifyProductId
+      if (mapping.shopifyProductId) {
+        await this.ordersRepository
+          .createQueryBuilder()
+          .update()
+          .set({ tourCode: newCode ?? undefined })
+          .where(
+            'storeId = :storeId AND shopifyProductId = :pid AND (tourMappingId IS NULL OR tourMappingId != :mid)',
+            { storeId: mapping.storeId, pid: mapping.shopifyProductId, mid: mapping.id },
+          )
+          .execute();
+      }
     }
 
     return saved;
   }
 
-  /** Delete a mapping. Blocked if any orders are still assigned to its tour code. */
+  /** Delete a mapping. Blocked if any orders are linked via FK or by shopifyProductId. */
   async remove(id: string) {
     const mapping = await this.mappingsRepository.findOne({ where: { id } });
     if (!mapping) throw new NotFoundException('Tour mapping not found');
 
+    const byFk = await this.ordersRepository.count({ where: { tourMappingId: mapping.id } });
+    if (byFk > 0) {
+      throw new ConflictException(
+        `Cannot delete: ${byFk} order(s) are linked to this tour. Reassign those orders first.`,
+      );
+    }
+
     if (mapping.shopifyProductId) {
-      const inUse = await this.ordersRepository.count({
+      const byProductId = await this.ordersRepository.count({
         where: { storeId: mapping.storeId, shopifyProductId: mapping.shopifyProductId },
       });
-      if (inUse > 0) {
+      if (byProductId > 0) {
         throw new ConflictException(
-          `Cannot delete: tour code "${mapping.tourCode}" is linked to ${inUse} order(s). Reassign those orders first.`,
+          `Cannot delete: ${byProductId} order(s) reference product "${mapping.productTitle}" from store ${mapping.storeId}. Reassign those orders first.`,
         );
       }
     }

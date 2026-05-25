@@ -5,7 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, PlusCircle, Save, CalendarIcon, CreditCard, Trash2, Printer } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
-import { useOrder, useOrders, useSupplements, useTransportTypes, useRoomTypeRules, useOrderHistory, useTourMappings } from '@/lib/hooks';
+import { useOrder, useOrders, useSupplements, useTransportTypes, useRoomTypeRules, useOrderHistory } from '@/lib/hooks';
+import type { TourMapping } from '@/lib/types';
 import api from '@/lib/api-client';
 import { useEffect, useMemo, useState } from 'react';
 import { useLocalStorage } from '@/hooks/use-local-storage';
@@ -211,12 +212,13 @@ export default function OrderDetailsPage() {
 
   const { roomRules, loading: roomRulesLoading } = useRoomTypeRules();
 
-  const { tourMappings } = useTourMappings();
-  // Only mappings for the same store as this order
-  const storeMappings = useMemo(
-    () => tourMappings.filter((m) => m.storeId === order?.storeId && m.productTitle),
-    [tourMappings, order?.storeId],
-  );
+  const [storeMappings, setStoreMappings] = useState<TourMapping[]>([]);
+  useEffect(() => {
+    if (!order?.storeId) return;
+    api.tourMappings.listByStore(order.storeId)
+      .then(setStoreMappings)
+      .catch(() => {});
+  }, [order?.storeId]);
 
   const [isSupplementFormOpen, setSupplementFormOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -300,9 +302,12 @@ export default function OrderDetailsPage() {
       pickupLocation: order.pickupLocation ?? '',
       pax: Number(order.pax || 1),
     });
-    // Pre-select the mapping that matches the current tour code
-    const match = storeMappings.find((m) => m.tourCode === order.tourCode);
-    setSelectedMappingId(match?.id ?? null);
+    // Pre-select the mapping: prefer FK, fall back to tourCode match
+    const matchById = order.tourMappingId
+      ? storeMappings.find((m: TourMapping) => m.id === order.tourMappingId)
+      : null;
+    const matchByCode = storeMappings.find((m: TourMapping) => m.tourCode === order.tourCode);
+    setSelectedMappingId((matchById ?? matchByCode)?.id ?? null);
     setFormInitialized(true);
   }, [order, orderLoading, transportLoading, roomRulesLoading, form, storeMappings]);
 
@@ -352,11 +357,10 @@ export default function OrderDetailsPage() {
       tourHour: cleanString(values.tourHour),
       tourType: values.tourType ?? null,
 
-      tourCode: cleanString(values.tourCode),
-      ...(selectedMappingId && (() => {
-        const m = storeMappings.find((x) => x.id === selectedMappingId);
-        return m ? { shopifyProductId: m.shopifyProductId, tourTitle: m.productTitle } : {};
-      })()),
+      // FK drives tourCode/tourTitle/shopifyProductId on the backend.
+      // When no mapping is selected, send the raw tourCode form value so manual overrides still work.
+      tourMappingId: selectedMappingId ?? null,
+      ...(selectedMappingId ? {} : { tourCode: cleanString(values.tourCode) }),
       campType: cleanString(values.campType),
       roomType: cleanString(values.roomType),
       accommodationName: cleanString(values.accommodationName),
@@ -776,12 +780,12 @@ export default function OrderDetailsPage() {
                         <FormLabel>Tour</FormLabel>
                         <Select
                           value={selectedMappingId ?? '__none__'}
-                          onValueChange={(v) => {
+                          onValueChange={(v: string) => {
                             if (v === '__none__') {
                               setSelectedMappingId(null);
                               form.setValue('tourCode', null, { shouldDirty: true });
                             } else {
-                              const m = storeMappings.find((x) => x.id === v);
+                              const m = storeMappings.find((x: TourMapping) => x.id === v);
                               setSelectedMappingId(v);
                               form.setValue('tourCode', m?.tourCode ?? null, { shouldDirty: true });
                             }
@@ -791,11 +795,13 @@ export default function OrderDetailsPage() {
                             <SelectValue placeholder="Select tour…" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="__none__">— No change —</SelectItem>
-                            {storeMappings.map((m) => (
+                            <SelectItem value="__none__">— No tour —</SelectItem>
+                            {storeMappings.map((m: TourMapping) => (
                               <SelectItem key={m.id} value={m.id}>
-                                {m.productTitle}
-                                {m.tourCode && <span className="ml-2 text-xs text-muted-foreground font-mono">({m.tourCode})</span>}
+                                {m.productTitle || m.tourCode || m.shopifyProductId}
+                                {m.tourCode && m.productTitle && (
+                                  <span className="ml-2 text-xs text-muted-foreground font-mono">({m.tourCode})</span>
+                                )}
                               </SelectItem>
                             ))}
                           </SelectContent>

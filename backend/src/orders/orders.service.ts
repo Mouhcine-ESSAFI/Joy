@@ -46,15 +46,27 @@ export class OrdersService {
   async create(createOrderDto: CreateOrderDto): Promise<Order> {
     const order = this.ordersRepository.create(createOrderDto);
     
-    // Auto-assign tour code from mapping using Shopify product ID
-    if (order.storeId && !order.tourCode) {
+    // Resolve tourMappingId → populate tourCode, shopifyProductId, tourTitle
+    if (createOrderDto.tourMappingId) {
+      try {
+        const mapping = await this.tourMappingsService.findOne(createOrderDto.tourMappingId);
+        order.tourMappingId = mapping.id;
+        order.tourCode = mapping.tourCode ?? order.tourCode;
+        order.shopifyProductId = mapping.shopifyProductId ?? order.shopifyProductId;
+        order.tourTitle = mapping.productTitle ?? order.tourTitle;
+      } catch (error) {
+        this.logger.warn(`Failed to resolve tourMappingId on create: ${error.message}`);
+      }
+    } else if (order.storeId && !order.tourCode) {
+      // Auto-assign tour code from mapping using Shopify product ID (webhook path)
       try {
         const mapping = order.shopifyProductId
           ? await this.tourMappingsService.findByStoreAndProductId(order.storeId, order.shopifyProductId)
           : null;
 
-        if (mapping && mapping.tourCode) {
-          order.tourCode = mapping.tourCode;
+        if (mapping) {
+          order.tourCode = mapping.tourCode ?? order.tourCode;
+          order.tourMappingId = mapping.id;
         }
       } catch (error) {
         this.logger.warn(`Failed to auto-assign tour code: ${error.message}`);
@@ -288,6 +300,23 @@ export class OrdersService {
     }> = [];
 
     // Check each field for changes
+    // Resolve tourMappingId → populate tourCode, shopifyProductId, tourTitle
+    if (updateOrderDto.tourMappingId !== undefined) {
+      if (updateOrderDto.tourMappingId) {
+        try {
+          const mapping = await this.tourMappingsService.findOne(updateOrderDto.tourMappingId);
+          updateOrderDto.tourCode = mapping.tourCode ?? undefined;
+          updateOrderDto.shopifyProductId = mapping.shopifyProductId ?? undefined;
+          updateOrderDto.tourTitle = mapping.productTitle ?? undefined;
+        } catch (error) {
+          this.logger.warn(`Failed to resolve tourMappingId on update: ${error.message}`);
+        }
+      } else {
+        // Explicit null clears the FK but keeps existing tourCode/tourTitle
+        updateOrderDto.tourMappingId = null;
+      }
+    }
+
     const fieldsToTrack = [
       'status',
       'customerName',
@@ -297,6 +326,8 @@ export class OrdersService {
       'tourHour',
       'pax',
       'tourType',
+      'tourMappingId',
+      'tourCode',
       'campType',
       'roomType',
       'pickupLocation',

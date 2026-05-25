@@ -158,13 +158,14 @@ export default function NewOrderForm() {
 
         storeId: resolvedStoreId,
 
-        tourCode: values.tourCode || null,
-        ...(() => {
-          const m = storeMappings.find((x) => x.id === selectedMappingId);
-          return m
-            ? { shopifyProductId: m.shopifyProductId, tourTitle: m.productTitle }
-            : { tourTitle: values.tourCode ? `Manual - ${values.tourCode}` : 'Manual Order' };
-        })(),
+        tourMappingId: selectedMappingId ?? null,
+        // When no mapping, fall back to raw code + synthetic title
+        ...(selectedMappingId
+          ? {}
+          : {
+              tourCode: values.tourCode || null,
+              tourTitle: values.tourCode ? `Manual - ${values.tourCode}` : 'Manual Order',
+            }),
         tourType: values.tourType,
         tourDate: format(values.tourDate, 'yyyy-MM-dd'),
         tourHour: values.tourHour || '07:00',

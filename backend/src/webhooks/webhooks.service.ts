@@ -756,7 +756,7 @@ export class WebhooksService {
     for (const order of orders) {
       const store = storeMap.get(order.storeId);
       this.logger.log(`[BACKFILL] Order ${order.shopifyOrderNumber} | storeId="${order.storeId}" | storeFound=${!!store} | productId="${order.shopifyProductId}" | hasStops=${!!order.stops} | tourCode="${order.tourCode}" | lang="${order.language}"`);
-      const updates: Partial<{ stops: string; language: string; tourCode: string }> = {};
+      const updates: Partial<{ stops: string; language: string; tourCode: string; tourMappingId: string }> = {};
 
       // Backfill stops: use already-stored metafields (they contain the itinerary GID)
       if (!order.stops && store) {
@@ -782,16 +782,17 @@ export class WebhooksService {
         }
       }
 
-      // Backfill tour code: if missing and product ID is stored
-      if (!order.tourCode && order.storeId && order.shopifyProductId) {
+      // Backfill tourMappingId (FK) + tourCode for orders missing either
+      if (order.storeId && order.shopifyProductId && (!order.tourCode || !order.tourMappingId)) {
         try {
           const mapping = await this.tourMappingsService.findByStoreAndProductId(
             order.storeId,
             order.shopifyProductId,
           );
-          if (mapping?.tourCode) {
-            updates.tourCode = mapping.tourCode;
-            tourCodesUpdated++;
+          if (mapping) {
+            if (!order.tourMappingId) updates.tourMappingId = mapping.id;
+            if (!order.tourCode && mapping.tourCode) updates.tourCode = mapping.tourCode;
+            if (!order.tourCode || !order.tourMappingId) tourCodesUpdated++;
           }
         } catch {}
       }

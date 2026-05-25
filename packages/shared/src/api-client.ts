@@ -349,6 +349,9 @@ import { isApiError } from './types';
   export const tourMappingsApi = {
     list: () =>
       client.get<TourMapping[]>('/tour-mappings'),
+
+    listByStore: (storeId: string) =>
+      client.get<TourMapping[]>(`/tour-mappings/by-store/${encodeURIComponent(storeId)}`),
   
     getById: (id: string) =>
       client.get<TourMapping>(`/tour-mappings/${id}`),

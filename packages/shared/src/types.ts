@@ -129,6 +129,7 @@ export interface Order {
   tourHour: string | null; // "16:00"
   pax: number;
   tourCode: string | null;
+  tourMappingId: string | null;
   tourTitle: string;
   tourType: TourType | null;
   campType: string | null;
@@ -230,6 +231,8 @@ export interface UpdateOrderDto {
   tourHour?: string;
   pax?: number;
   tourType?: TourType;
+  tourMappingId?: string | null;
+  tourCode?: string;
   campType?: string;
   roomType?: string;
   pickupLocation?: string;

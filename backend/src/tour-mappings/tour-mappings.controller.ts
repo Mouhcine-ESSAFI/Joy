@@ -29,6 +29,13 @@ export class TourMappingsController {
     return this.tourMappingsService.findAll();
   }
 
+  /** Returns all mappings for a specific store — used to populate the Tour select in order detail */
+  @Get('by-store/:storeId')
+  @Roles(UserRole.OWNER, UserRole.ADMIN, UserRole.TRAVEL_AGENT, UserRole.FINANCE, UserRole.DRIVER)
+  findByStore(@Param('storeId') storeId: string) {
+    return this.tourMappingsService.findByStore(storeId);
+  }
+
   /** Returns all Shopify product titles for a given store — used to populate the create dialog */
   @Get('store-products')
   @Roles(UserRole.OWNER, UserRole.ADMIN)
