@@ -132,11 +132,14 @@ export class TourMappingsService {
     const mapping = this.mappingsRepository.create(createDto);
     const saved = await this.mappingsRepository.save(mapping);
 
-    // Propagate to all existing orders in the same store with the matching Shopify product ID
-    if (saved.tourCode && saved.shopifyProductId) {
+    // Propagate to all existing orders with the matching storeId + shopifyProductId
+    if (saved.shopifyProductId) {
       await this.ordersRepository.update(
         { storeId: saved.storeId, shopifyProductId: saved.shopifyProductId },
-        { tourCode: saved.tourCode },
+        {
+          tourMappingId: saved.id,
+          ...(saved.tourCode ? { tourCode: saved.tourCode } : {}),
+        },
       );
     }
 
@@ -154,23 +157,27 @@ export class TourMappingsService {
     Object.assign(mapping, updateDto);
     const saved = await this.mappingsRepository.save(mapping);
 
-    if (newCode !== oldCode) {
-      // Primary: update orders linked via FK
-      await this.ordersRepository.update(
-        { tourMappingId: mapping.id },
-        { tourCode: newCode ?? undefined },
-      );
-      // Fallback: update legacy orders not yet linked via FK but matched by shopifyProductId
-      if (mapping.shopifyProductId) {
-        await this.ordersRepository
-          .createQueryBuilder()
-          .update()
-          .set({ tourCode: newCode ?? undefined })
-          .where(
-            'storeId = :storeId AND shopifyProductId = :pid AND (tourMappingId IS NULL OR tourMappingId != :mid)',
-            { storeId: mapping.storeId, pid: mapping.shopifyProductId, mid: mapping.id },
-          )
-          .execute();
+    if (mapping.shopifyProductId) {
+      // Always wire up the FK for any orders not yet linked (regardless of tourCode change)
+      await this.ordersRepository
+        .createQueryBuilder()
+        .update()
+        .set({
+          tourMappingId: mapping.id,
+          ...(newCode ? { tourCode: newCode } : {}),
+        })
+        .where(
+          'storeId = :storeId AND shopifyProductId = :pid AND (tourMappingId IS NULL OR tourMappingId != :mid)',
+          { storeId: mapping.storeId, pid: mapping.shopifyProductId, mid: mapping.id },
+        )
+        .execute();
+
+      // Also update tourCode on already-linked orders if it changed
+      if (newCode !== oldCode) {
+        await this.ordersRepository.update(
+          { tourMappingId: mapping.id },
+          { tourCode: newCode ?? undefined },
+        );
       }
     }
 
