@@ -90,6 +90,8 @@ export class WebhooksService {
           customerPhone: parsedOrder.customerPhone,
           billingPhone: parsedOrder.billingPhone,
 
+          shopifyProductId: lineItem.productId ?? null,
+
           tourDate: lineItem.tourDate ? lineItem.tourDate.toISOString().split('T')[0] : null,
           tourHour: lineItem.tourHour,
           pax: lineItem.pax || 1,
@@ -227,6 +229,7 @@ export class WebhooksService {
           customerEmail: parsedOrder.customerEmail,
           // customerPhone is intentionally excluded — users edit it manually in the booking app
           // and Shopify often sends null or stale values that would overwrite their edits
+          shopifyProductId: lineItem.productId ?? null,
           tourDate: lineItem.tourDate ? lineItem.tourDate.toISOString().split('T')[0] : null,
           tourHour: lineItem.tourHour,
           pax: lineItem.pax || 1,
@@ -756,7 +759,7 @@ export class WebhooksService {
     for (const order of orders) {
       const store = storeMap.get(order.storeId);
       this.logger.log(`[BACKFILL] Order ${order.shopifyOrderNumber} | storeId="${order.storeId}" | storeFound=${!!store} | productId="${order.shopifyProductId}" | hasStops=${!!order.stops} | tourCode="${order.tourCode}" | lang="${order.language}"`);
-      const updates: Partial<{ stops: string; language: string; tourCode: string; tourMappingId: string }> = {};
+      const updates: Record<string, any> = {};
 
       // Backfill stops: use already-stored metafields (they contain the itinerary GID)
       if (!order.stops && store) {
@@ -782,13 +785,32 @@ export class WebhooksService {
         }
       }
 
-      // Backfill tourMappingId (FK) + tourCode for orders missing either
-      if (order.storeId && order.shopifyProductId && (!order.tourCode || !order.tourMappingId)) {
+      // Backfill tourMappingId (FK) + tourCode + shopifyProductId for orders missing them
+      if (order.storeId && (!order.tourCode || !order.tourMappingId)) {
         try {
-          const mapping = await this.tourMappingsService.findByStoreAndProductId(
-            order.storeId,
-            order.shopifyProductId,
-          );
+          let mapping: import('../tour-mappings/entities/tour-mapping.entity').TourCodeMapping | null = null;
+
+          if (order.shopifyProductId) {
+            // Primary: match by shopifyProductId (stable)
+            mapping = await this.tourMappingsService.findByStoreAndProductId(
+              order.storeId,
+              order.shopifyProductId,
+            );
+          }
+
+          if (!mapping && order.tourTitle) {
+            // Fallback for historical orders where shopifyProductId was never stored:
+            // match by productTitle (Shopify product title == order tourTitle)
+            mapping = await this.tourMappingsService.findByStoreAndTitle(
+              order.storeId,
+              order.tourTitle,
+            );
+            // Also backfill shopifyProductId while we're here
+            if (mapping?.shopifyProductId && !order.shopifyProductId) {
+              updates.shopifyProductId = mapping.shopifyProductId;
+            }
+          }
+
           if (mapping) {
             if (!order.tourMappingId) updates.tourMappingId = mapping.id;
             if (!order.tourCode && mapping.tourCode) updates.tourCode = mapping.tourCode;
@@ -804,5 +826,82 @@ export class WebhooksService {
 
     this.logger.log(`Backfill complete — stops: ${stopsUpdated}, language: ${languageUpdated}, tourCodes: ${tourCodesUpdated}`);
     return { stopsUpdated, languageUpdated, tourCodesUpdated };
+  }
+
+  /**
+   * Backfills shopifyProductId on orders where it is missing.
+   * Fetches line items from the Shopify Orders API in batches of 250,
+   * matches by shopifyLineItemId, and writes the product_id back to the order.
+   * Safe: only touches shopifyProductId, nothing else.
+   */
+  async backfillProductIds(): Promise<{ updated: number; skipped: number }> {
+    const stores = await this.shopifyStoresService.findAll();
+    const storeMap = new Map(stores.map((s) => [s.internalName, s]));
+
+    // Only process real Shopify orders (not manual orders)
+    const orders = await this.ordersRepository.find();
+    const needsProductId = orders.filter(
+      (o) => !o.shopifyProductId && o.shopifyOrderId && !o.shopifyOrderId.startsWith('MANUAL'),
+    );
+
+    this.logger.log(`[BACKFILL-PID] Orders missing shopifyProductId: ${needsProductId.length}`);
+
+    if (needsProductId.length === 0) return { updated: 0, skipped: 0 };
+
+    // Group by storeId so we use the right access token
+    const byStore = new Map<string, typeof needsProductId>();
+    for (const order of needsProductId) {
+      if (!byStore.has(order.storeId)) byStore.set(order.storeId, []);
+      byStore.get(order.storeId)!.push(order);
+    }
+
+    let updated = 0;
+    let skipped = 0;
+
+    for (const [storeId, storeOrders] of byStore) {
+      const store = storeMap.get(storeId);
+      if (!store) { skipped += storeOrders.length; continue; }
+
+      const baseUrl = `https://${store.shopifyDomain}/admin/api/${store.apiVersion}`;
+      const headers = { 'X-Shopify-Access-Token': store.accessToken };
+
+      // Deduplicate shopifyOrderIds and batch 250 per request
+      const uniqueOrderIds = [...new Set(storeOrders.map((o) => o.shopifyOrderId))];
+
+      // Build a lookup: shopifyLineItemId → order
+      const byLineItemId = new Map(storeOrders.map((o) => [o.shopifyLineItemId, o]));
+
+      for (let i = 0; i < uniqueOrderIds.length; i += 250) {
+        const batch = uniqueOrderIds.slice(i, i + 250);
+        const url = `${baseUrl}/orders.json?ids=${batch.join(',')}&fields=id,line_items&limit=250`;
+
+        try {
+          const res = await fetch(url, { headers });
+          if (!res.ok) {
+            this.logger.warn(`[BACKFILL-PID] Shopify ${res.status} for store ${storeId}, batch ${i / 250 + 1}`);
+            skipped += batch.length;
+            continue;
+          }
+          const data = await res.json();
+
+          for (const shopifyOrder of data.orders ?? []) {
+            for (const lineItem of shopifyOrder.line_items ?? []) {
+              const order = byLineItemId.get(lineItem.id?.toString());
+              if (!order || !lineItem.product_id) continue;
+              await this.ordersRepository.update(order.id, {
+                shopifyProductId: lineItem.product_id.toString(),
+              });
+              updated++;
+            }
+          }
+        } catch (err) {
+          this.logger.error(`[BACKFILL-PID] Error fetching batch for store ${storeId}: ${err.message}`);
+          skipped += batch.length;
+        }
+      }
+    }
+
+    this.logger.log(`[BACKFILL-PID] Done — updated: ${updated}, skipped: ${skipped}`);
+    return { updated, skipped };
   }
 }

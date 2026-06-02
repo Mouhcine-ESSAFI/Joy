@@ -59,6 +59,14 @@ export class WebhooksController {
     return this.webhooksService.backfillOrders();
   }
 
+  @Post('backfill-product-ids')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('Owner')
+  @HttpCode(200)
+  backfillProductIds() {
+    return this.webhooksService.backfillProductIds();
+  }
+
   @Post('orders/cancelled')
   @HttpCode(200)
   @UseGuards(ShopifyWebhookGuard)

@@ -53,6 +53,12 @@ export class TourMappingsService {
     });
   }
 
+  async findByStoreAndTitle(storeId: string, productTitle: string) {
+    return await this.mappingsRepository.findOne({
+      where: { storeId, productTitle },
+    });
+  }
+
   /**
    * Returns all Shopify products for a store, enriched with their tour mapping (if any).
    * Used to populate the Tour select in order detail.
@@ -141,6 +147,24 @@ export class TourMappingsService {
           ...(saved.tourCode ? { tourCode: saved.tourCode } : {}),
         },
       );
+    }
+
+    // Fallback: connect historical orders that were stored without shopifyProductId,
+    // matched by tourTitle == productTitle
+    if (saved.productTitle) {
+      await this.ordersRepository
+        .createQueryBuilder()
+        .update()
+        .set({
+          tourMappingId: saved.id,
+          shopifyProductId: saved.shopifyProductId,
+          ...(saved.tourCode ? { tourCode: saved.tourCode } : {}),
+        })
+        .where(
+          'storeId = :storeId AND tourTitle = :title AND (shopifyProductId IS NULL OR tourMappingId IS NULL)',
+          { storeId: saved.storeId, title: saved.productTitle },
+        )
+        .execute();
     }
 
     return saved;

@@ -456,6 +456,9 @@ import { isApiError } from './types';
 
     backfillOrders: () =>
       client.post<{ stopsUpdated: number; languageUpdated: number; tourCodesUpdated: number }>('/webhooks/shopify/backfill'),
+
+    backfillProductIds: () =>
+      client.post<{ updated: number; skipped: number }>('/webhooks/shopify/backfill-product-ids'),
   };
 
   // ============================================

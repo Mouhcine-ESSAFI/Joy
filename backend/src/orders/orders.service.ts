@@ -53,7 +53,7 @@ export class OrdersService {
         order.tourMappingId = mapping.id;
         order.tourCode = mapping.tourCode ?? order.tourCode;
         order.shopifyProductId = mapping.shopifyProductId ?? order.shopifyProductId;
-        order.tourTitle = mapping.productTitle ?? order.tourTitle;
+        order.tourTitle = mapping.productTitle ?? order.tourTitle ?? mapping.tourCode ?? 'Unknown Tour';
       } catch (error) {
         this.logger.warn(`Failed to resolve tourMappingId on create: ${error.message}`);
       }
@@ -307,7 +307,7 @@ export class OrdersService {
           const mapping = await this.tourMappingsService.findOne(updateOrderDto.tourMappingId);
           updateOrderDto.tourCode = mapping.tourCode ?? undefined;
           updateOrderDto.shopifyProductId = mapping.shopifyProductId ?? undefined;
-          updateOrderDto.tourTitle = mapping.productTitle ?? undefined;
+          updateOrderDto.tourTitle = mapping.productTitle ?? mapping.tourCode ?? undefined;
         } catch (error) {
           this.logger.warn(`Failed to resolve tourMappingId on update: ${error.message}`);
         }

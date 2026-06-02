@@ -264,15 +264,17 @@ export function OrderTimeline({ orderId }: OrderTimelineProps) {
                           <>
                             <User className="h-3 w-3" />
                             <span>{event.user.name}</span>
-                            <Badge variant="secondary" className="text-xs">
-                              {event.user.role}
-                            </Badge>
+                            {(event.user as any).role && (
+                              <Badge variant="secondary" className="text-xs">
+                                {(event.user as any).role}
+                              </Badge>
+                            )}
                           </>
                         )}
                       </div>
                     </div>
                     <span className="text-xs text-muted-foreground whitespace-nowrap">
-                      {format(new Date(event.created_at || event.createdAt), "dd MMM yyyy 'at' HH:mm")}
+                      {format(new Date(event.createdAt), "dd MMM yyyy 'at' HH:mm")}
                     </span>
                   </div>
 

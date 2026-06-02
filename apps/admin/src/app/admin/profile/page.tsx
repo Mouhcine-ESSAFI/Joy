@@ -59,6 +59,7 @@ export default function OwnerProfilePage() {
   const [isResettingOrders, setIsResettingOrders] = useState(false);
   const [isResettingSync, setIsResettingSync] = useState(false);
   const [isBackfilling, setIsBackfilling] = useState(false);
+  const [isBackfillingProductIds, setIsBackfillingProductIds] = useState(false);
 
   const isOwner = currentUser?.role === UserRole.OWNER;
 
@@ -123,6 +124,18 @@ export default function OwnerProfilePage() {
       toast({ variant: 'destructive', title: 'Backfill Failed', description: e.message });
     } finally {
       setIsBackfilling(false);
+    }
+  }
+
+  async function handleBackfillProductIds() {
+    setIsBackfillingProductIds(true);
+    try {
+      const result = await api.maintenance.backfillProductIds();
+      toast({ title: 'Product IDs Backfilled', description: `Updated: ${result.updated} orders · Skipped: ${result.skipped}` });
+    } catch (e: any) {
+      toast({ variant: 'destructive', title: 'Backfill Failed', description: e.message });
+    } finally {
+      setIsBackfillingProductIds(false);
     }
   }
 
@@ -421,6 +434,24 @@ export default function OwnerProfilePage() {
                 >
                   <RefreshCw className={`mr-2 h-3.5 w-3.5 ${isBackfilling ? 'animate-spin' : ''}`} />
                   {isBackfilling ? 'Processing…' : 'Run Backfill'}
+                </Button>
+              </div>
+
+              {/* Backfill Shopify product IDs */}
+              <div className="flex items-start justify-between gap-4 pt-2">
+                <div>
+                  <p className="text-sm font-medium">Backfill Product IDs</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Fetch Shopify product IDs for existing orders where it is missing. Required once to connect orders to tour mappings.</p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0"
+                  disabled={isBackfillingProductIds}
+                  onClick={handleBackfillProductIds}
+                >
+                  <RefreshCw className={`mr-2 h-3.5 w-3.5 ${isBackfillingProductIds ? 'animate-spin' : ''}`} />
+                  {isBackfillingProductIds ? 'Processing…' : 'Backfill Product IDs'}
                 </Button>
               </div>
             </CardContent>
