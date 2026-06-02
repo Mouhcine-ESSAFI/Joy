@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Param, Body, Headers, UseGuards, HttpCode, Logger } from '@nestjs/common';
+import { Controller, Post, Get, Param, Query, Body, Headers, UseGuards, HttpCode, Logger } from '@nestjs/common';
 import { WebhooksService } from './webhooks.service';
 import { ShopifyWebhookGuard } from './webhooks.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -72,6 +72,17 @@ export class WebhooksController {
   @Roles('Owner', 'Admin')
   metaobjectDebug(@Param('orderId') orderId: string) {
     return this.webhooksService.getMetaobjectRaw(orderId);
+  }
+
+  // Test any GID directly: GET /webhooks/shopify/metaobject-query?storeId=joy&gid=gid://shopify/Metaobject/116133232719
+  @Get('metaobject-query')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('Owner', 'Admin')
+  metaobjectQuery(
+    @Query('storeId') storeId: string,
+    @Query('gid') gid: string,
+  ) {
+    return this.webhooksService.queryMetaobjectByGid(storeId, gid);
   }
 
   @Post('orders/cancelled')

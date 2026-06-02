@@ -735,6 +735,76 @@ export class WebhooksService {
     this.eventsGateway.emitOrdersUpdated(storeId);
   }
 
+  async queryMetaobjectByGid(storeId: string, gid: string): Promise<any> {
+    const stores = await this.shopifyStoresService.findAll();
+    const store = stores.find((s) => s.internalName === storeId);
+    if (!store) throw new Error(`Store "${storeId}" not found. Available: ${stores.map((s) => s.internalName).join(', ')}`);
+
+    const gqlUrl = `https://${store.shopifyDomain}/admin/api/${store.apiVersion}/graphql.json`;
+    const headers = { 'X-Shopify-Access-Token': store.accessToken, 'Content-Type': 'application/json' };
+
+    const query = `
+      query GetMetaobjectRaw($id: ID!) {
+        metaobject(id: $id) {
+          id
+          type
+          handle
+          fields {
+            key
+            type
+            value
+            references(first: 50) {
+              nodes {
+                ... on Metaobject {
+                  id
+                  type
+                  handle
+                  fields {
+                    key
+                    type
+                    value
+                    references(first: 50) {
+                      nodes {
+                        ... on Metaobject {
+                          id
+                          type
+                          handle
+                          fields {
+                            key
+                            type
+                            value
+                            references(first: 50) {
+                              nodes {
+                                ... on Metaobject {
+                                  id
+                                  type
+                                  handle
+                                  fields { key type value }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    `;
+
+    const res = await fetch(gqlUrl, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ query, variables: { id: gid } }),
+    });
+    const json = await res.json();
+    return { storeId, gid, httpStatus: res.status, response: json };
+  }
+
   /**
    * Fetches and returns ALL raw metaobject data for an order's itinerary GID.
    * Used for debugging: shows the exact Shopify GraphQL structure so we can
