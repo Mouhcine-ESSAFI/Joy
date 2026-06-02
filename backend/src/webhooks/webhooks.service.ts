@@ -599,15 +599,16 @@ export class WebhooksService {
   }
 
   /**
-   * Resolves the nested metaobject chain:
-   * product.tour_itinerary.itinerary_details → metaobject
-   *   .cities → list of metaobjects
-   *     .tour_location → metaobject
-   *       .name → stop name (string)
+   * Resolves the itinerary metaobject chain:
+   * tour_itinerary
+   *   .itinerary_details[] → days (type: itinerary_details)
+   *     .stops[] → stop groups (type: cities)
+   *       .cities[] → locations (type: tour_location)
+   *         .name → string
    *
-   * Returns an array of stop names, or [] if the chain is missing/unreachable.
+   * Returns per-day grouped stops: [{ day: "Day 1", stops: ["Fez/essaouira", "Fez"] }, ...]
    */
-  private async fetchItineraryStops(store: any, metafields: any[]): Promise<string[]> {
+  private async fetchItineraryStops(store: any, metafields: any[]): Promise<{ day: string; stops: string[] }[]> {
     try {
       const itineraryMF = metafields.find(
         (m) => m.namespace === 'detail' && m.key === 'itinerary',
@@ -617,28 +618,24 @@ export class WebhooksService {
       const gqlUrl = `https://${store.shopifyDomain}/admin/api/${store.apiVersion}/graphql.json`;
       const headers = { 'X-Shopify-Access-Token': store.accessToken, 'Content-Type': 'application/json' };
 
-      // Fetch full 4-level structure with type + value at every level
       const query = `
         query GetItinerary($id: ID!) {
           metaobject(id: $id) {
             type
             fields {
               key
-              value
               references(first: 30) {
                 nodes {
                   ... on Metaobject {
                     type
                     fields {
                       key
-                      value
                       references(first: 30) {
                         nodes {
                           ... on Metaobject {
                             type
                             fields {
                               key
-                              value
                               references(first: 30) {
                                 nodes {
                                   ... on Metaobject {
@@ -670,61 +667,46 @@ export class WebhooksService {
         this.logger.warn(`fetchItineraryStops: GraphQL ${res.status}`);
         return [];
       }
+
       const json = await res.json();
-      const metaobject = json?.data?.metaobject;
+      const rootFields: any[] = json?.data?.metaobject?.fields ?? [];
 
-      this.logger.log(`[STOPS] Root type="${metaobject?.type}" fields: ${(metaobject?.fields ?? []).map((f: any) => f.key).join(', ')}`);
+      // Level 1: itinerary_details field → array of day nodes
+      const daysField = rootFields.find((f: any) => f.key === 'itinerary_details');
+      const days: any[] = daysField?.references?.nodes ?? [];
 
-      const rootFields: any[] = metaobject?.fields ?? [];
-      const names: string[] = [];
+      const result: { day: string; stops: string[] }[] = [];
 
-      // Level 1: any field with child nodes (days)
-      for (const l1 of rootFields) {
-        const dayNodes: any[] = l1?.references?.nodes ?? [];
-        if (dayNodes.length === 0) continue;
-        this.logger.log(`[STOPS] L1 key="${l1.key}" → ${dayNodes.length} nodes`);
+      for (let di = 0; di < days.length; di++) {
+        const dayFields: any[] = days[di]?.fields ?? [];
 
-        for (const [di, day] of dayNodes.entries()) {
-          const dayFields: any[] = day?.fields ?? [];
-          this.logger.log(`[STOPS] Day[${di}] type="${day?.type}" fields: ${dayFields.map((f: any) => f.key).join(', ')}`);
+        // Level 2: stops field → array of cities (stop group) nodes
+        const stopsField = dayFields.find((f: any) => f.key === 'stops');
+        const stopGroups: any[] = stopsField?.references?.nodes ?? [];
 
-          // Level 2: any field with child nodes (stops), or direct name
-          for (const l2 of dayFields) {
-            const stopNodes: any[] = l2?.references?.nodes ?? [];
-            if (stopNodes.length === 0) continue;
-            this.logger.log(`[STOPS] Day[${di}] L2 key="${l2.key}" → ${stopNodes.length} nodes`);
+        const stopLabels: string[] = [];
 
-            for (const [si, stop] of stopNodes.entries()) {
-              const stopFields: any[] = stop?.fields ?? [];
-              this.logger.log(`[STOPS] Stop[${si}] type="${stop?.type}" fields: ${JSON.stringify(stopFields)}`);
+        for (const group of stopGroups) {
+          // Level 3: cities field → array of tour_location nodes
+          const citiesField = (group.fields ?? []).find((f: any) => f.key === 'cities');
+          const locations: any[] = citiesField?.references?.nodes ?? [];
 
-              // Check if stop itself has a name/title
-              const directName = stopFields.find((f: any) => ['name', 'title', 'label'].includes(f.key));
-              if (directName?.value) {
-                names.push(String(directName.value).trim());
-                continue;
-              }
+          // Level 4: name field on each tour_location
+          const names = locations
+            .map((loc: any) => (loc.fields ?? []).find((f: any) => f.key === 'name')?.value)
+            .filter(Boolean)
+            .map(String);
 
-              // Level 3: any field with child nodes (locations)
-              for (const l3 of stopFields) {
-                const locationNodes: any[] = l3?.references?.nodes ?? [];
-                if (locationNodes.length === 0) continue;
-                this.logger.log(`[STOPS] Stop[${si}] L3 key="${l3.key}" → ${locationNodes.length} nodes`);
+          if (names.length > 0) stopLabels.push(names.join('/'));
+        }
 
-                for (const location of locationNodes) {
-                  const locationFields: any[] = location?.fields ?? [];
-                  this.logger.log(`[STOPS] Location type="${location?.type}" fields: ${JSON.stringify(locationFields)}`);
-                  const nameField = locationFields.find((f: any) => ['name', 'title', 'label'].includes(f.key));
-                  if (nameField?.value) names.push(String(nameField.value).trim());
-                }
-              }
-            }
-          }
+        if (stopLabels.length > 0) {
+          result.push({ day: `Day ${di + 1}`, stops: stopLabels });
         }
       }
 
-      this.logger.log(`[STOPS] Final names: ${JSON.stringify(names)}`);
-      return names;
+      this.logger.log(`[STOPS] Result: ${JSON.stringify(result)}`);
+      return result;
     } catch (err: any) {
       this.logger.warn(`fetchItineraryStops failed: ${err?.message}`);
       return [];

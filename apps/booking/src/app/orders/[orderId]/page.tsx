@@ -1169,53 +1169,71 @@ export default function OrderDetailsPage() {
                     </div>
                     </div>{/* end flex-1 */}
 
-                    {/* Stops route — right sidebar */}
+                    {/* Itinerary sidebar */}
                     {(() => {
-                      console.log('[STOPS] order.stops:', order?.stops);
-                      console.log('[STOPS] order.shopifyMetadata:', order?.shopifyMetadata);
-                      console.log('[STOPS] order.lineItemProperties:', order?.lineItemProperties);
-                      function parseStops(o: typeof order): string[] {
+                      type DayStops = { day: string; stops: string[] };
+                      function parseStops(o: typeof order): DayStops[] | string[] {
                         if (o?.stops) {
-                          try { const p = JSON.parse(o.stops); if (Array.isArray(p)) return p.map(String).filter(Boolean); } catch {}
+                          try {
+                            const p = JSON.parse(o.stops);
+                            if (Array.isArray(p) && p.length > 0) {
+                              if (typeof p[0] === 'object' && p[0] !== null && 'day' in p[0]) return p as DayStops[];
+                              return p.map(String).filter(Boolean);
+                            }
+                          } catch {}
                           return o.stops.split(/[,\n;]/).map((s: string) => s.trim()).filter(Boolean);
-                        }
-                        const mf: any[] = o?.shopifyMetadata?.metafields ?? [];
-                        const found = mf.find((m) => m.key?.toLowerCase() === 'stops');
-                        if (found?.value && !String(found.value).startsWith('gid://')) {
-                          try { const p = JSON.parse(found.value); if (Array.isArray(p)) return p.map(String).filter(Boolean); } catch {}
-                          return String(found.value).split(/[,\n;]/).map((s) => s.trim()).filter(Boolean);
                         }
                         return [];
                       }
-                      const stops = parseStops(order);
-                      console.log('[STOPS] parsed stops:', stops);
-                      if (stops.length === 0) return null;
-                      const arrival = (order.shopifyMetadata?.metafields ?? []).find((m: any) => ['to', 'to_', 'arrival', 'destination'].includes(m.key?.toLowerCase()))?.value
-                        ?? (order.lineItemProperties?.raw ?? []).find((p: any) => ['to', 'to_', 'arrival', 'destination'].includes(p.name?.toLowerCase()))?.value;
+                      const parsed = parseStops(order);
+                      if (parsed.length === 0) return null;
+                      const isGrouped = typeof parsed[0] === 'object';
+
                       return (
-                        <div className="xl:w-56 shrink-0 xl:border-l xl:pl-8 pt-6 xl:pt-0">
-                          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-4">Route</p>
-                          <div className="relative">
-                            <div className="absolute left-[5px] top-2 bottom-2 w-px bg-border" />
-                            {order.pickupLocation && (
-                              <div className="relative flex items-start gap-3 pb-4">
-                                <div className="w-2.5 h-2.5 rounded-full bg-primary shrink-0 mt-1 ring-2 ring-background z-10 relative" />
-                                <span className="text-sm font-medium leading-tight">{order.pickupLocation}</span>
-                              </div>
-                            )}
-                            {stops.map((spot: string, i: number) => (
-                              <div key={i} className="relative flex items-start gap-3 pb-4">
-                                <div className="w-2.5 h-2.5 rounded-full border-2 border-primary bg-background shrink-0 mt-1 z-10 relative" />
-                                <span className="text-sm leading-tight">{spot}</span>
-                              </div>
-                            ))}
-                            {arrival && (
-                              <div className="relative flex items-start gap-3">
-                                <div className="w-2.5 h-2.5 rounded-full bg-green-500 shrink-0 mt-1 ring-2 ring-background z-10 relative" />
-                                <span className="text-sm font-medium leading-tight text-green-700">{arrival}</span>
-                              </div>
-                            )}
-                          </div>
+                        <div className="xl:w-64 shrink-0 border-t pt-6 xl:border-t-0 xl:border-l xl:pl-8 xl:pt-0">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-4">Itinerary</p>
+
+                          {isGrouped ? (
+                            <div className="space-y-5 max-h-[420px] overflow-y-auto pr-1">
+                              {(parsed as DayStops[]).map((dayData, di) => (
+                                <div key={dayData.day}>
+                                  {/* day label */}
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold shrink-0">
+                                      {di + 1}
+                                    </span>
+                                    <span className="text-xs font-semibold text-foreground">{dayData.day}</span>
+                                  </div>
+
+                                  {/* stops list */}
+                                  <div className="relative pl-2.5 ml-2.5 border-l-2 border-dashed border-border space-y-1.5">
+                                    {dayData.stops.map((spot, i) => (
+                                      <div key={i} className="flex items-start gap-2">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-primary/60 shrink-0 mt-1.5" />
+                                        <span className="text-sm leading-tight text-foreground/90">{spot}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="relative">
+                              <div className="absolute left-[5px] top-2 bottom-2 w-px bg-border" />
+                              {order.pickupLocation && (
+                                <div className="relative flex items-start gap-3 pb-4">
+                                  <div className="w-2.5 h-2.5 rounded-full bg-primary shrink-0 mt-1 ring-2 ring-background z-10 relative" />
+                                  <span className="text-sm font-medium leading-tight">{order.pickupLocation}</span>
+                                </div>
+                              )}
+                              {(parsed as string[]).map((spot, i) => (
+                                <div key={i} className="relative flex items-start gap-3 pb-3">
+                                  <div className="w-2.5 h-2.5 rounded-full border-2 border-primary bg-background shrink-0 mt-1 z-10 relative" />
+                                  <span className="text-sm leading-tight">{spot}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       );
                     })()}

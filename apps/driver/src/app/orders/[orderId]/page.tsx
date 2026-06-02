@@ -281,65 +281,85 @@ export default function DriverOrderDetailPage() {
           </CardContent>
         </Card>
 
-        {/* 2 — Route (pickup → stops → arrival) */}
+        {/* 2 — Itinerary / Route */}
         {(() => {
-          function parseStops(o: typeof order): string[] {
+          type DayStops = { day: string; stops: string[] };
+          function parseStops(o: typeof order): DayStops[] | string[] {
             if (o?.stops) {
-              try { const p = JSON.parse(o.stops); if (Array.isArray(p)) return p.map(String).filter(Boolean); } catch {}
+              try {
+                const p = JSON.parse(o.stops);
+                if (Array.isArray(p) && p.length > 0) {
+                  if (typeof p[0] === 'object' && p[0] !== null && 'day' in p[0]) return p as DayStops[];
+                  return p.map(String).filter(Boolean);
+                }
+              } catch {}
               return o.stops.split(/[,\n;]/).map((s: string) => s.trim()).filter(Boolean);
-            }
-            const mf: any[] = o?.shopifyMetadata?.metafields ?? [];
-            const found = mf.find((m) => m.key?.toLowerCase() === 'stops');
-            if (found?.value && !String(found.value).startsWith('gid://')) {
-              try { const p = JSON.parse(found.value); if (Array.isArray(p)) return p.map(String).filter(Boolean); } catch {}
-              return String(found.value).split(/[,\n;]/).map((s) => s.trim()).filter(Boolean);
             }
             return [];
           }
-          const stops = parseStops(order);
-          const hasRoute = order.pickupLocation || stops.length > 0 || arrival;
+          const parsed = parseStops(order);
+          const isGrouped = parsed.length > 0 && typeof parsed[0] === 'object';
+          const hasRoute = order.pickupLocation || parsed.length > 0 || arrival;
           if (!hasRoute) return null;
 
           return (
             <Card>
               <CardHeader className="pb-2 pt-4">
-                <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Route</CardTitle>
+                <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  {isGrouped ? 'Itinerary' : 'Route'}
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="relative">
-                  {/* vertical connector line */}
-                  <div className="absolute left-[7px] top-3 bottom-3 w-px bg-border" />
-
-                  {/* Pickup / Departure */}
-                  {order.pickupLocation && (
-                    <div className="relative flex items-start gap-3 pb-4">
-                      <div className="w-3.5 h-3.5 rounded-full bg-primary shrink-0 mt-0.5 ring-2 ring-background z-10 relative" />
-                      <div>
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground leading-none mb-0.5">Pickup</p>
-                        <p className="text-sm font-medium">{order.pickupLocation}</p>
+                {isGrouped ? (
+                  <div className="space-y-5">
+                    {(parsed as DayStops[]).map((dayData, di) => (
+                      <div key={dayData.day}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold shrink-0">
+                            {di + 1}
+                          </span>
+                          <span className="text-xs font-semibold text-foreground">{dayData.day}</span>
+                        </div>
+                        <div className="relative pl-2.5 ml-2.5 border-l-2 border-dashed border-border space-y-1.5">
+                          {dayData.stops.map((spot, i) => (
+                            <div key={i} className="flex items-start gap-2">
+                              <div className="w-1.5 h-1.5 rounded-full bg-primary/60 shrink-0 mt-1.5" />
+                              <p className="text-sm leading-tight">{spot}</p>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
-
-                  {/* Stops (waypoints) */}
-                  {stops.map((spot: string, i: number) => (
-                    <div key={i} className="relative flex items-start gap-3 pb-4">
-                      <div className="w-3.5 h-3.5 rounded-full border-2 border-primary bg-background shrink-0 mt-0.5 z-10 relative" />
-                      <p className="text-sm">{spot}</p>
-                    </div>
-                  ))}
-
-                  {/* Arrival / Destination */}
-                  {arrival && (
-                    <div className="relative flex items-start gap-3">
-                      <div className="w-3.5 h-3.5 rounded-full bg-green-500 shrink-0 mt-0.5 ring-2 ring-background z-10 relative" />
-                      <div>
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-green-600 leading-none mb-0.5">Arrival</p>
-                        <p className="text-sm font-medium text-green-700">{arrival}</p>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <div className="absolute left-[7px] top-3 bottom-3 w-px bg-border" />
+                    {order.pickupLocation && (
+                      <div className="relative flex items-start gap-3 pb-4">
+                        <div className="w-3.5 h-3.5 rounded-full bg-primary shrink-0 mt-0.5 ring-2 ring-background z-10 relative" />
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground leading-none mb-0.5">Pickup</p>
+                          <p className="text-sm font-medium">{order.pickupLocation}</p>
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </div>
+                    )}
+                    {(parsed as string[]).map((spot, i) => (
+                      <div key={i} className="relative flex items-start gap-3 pb-4">
+                        <div className="w-3.5 h-3.5 rounded-full border-2 border-primary bg-background shrink-0 mt-0.5 z-10 relative" />
+                        <p className="text-sm">{spot}</p>
+                      </div>
+                    ))}
+                    {arrival && (
+                      <div className="relative flex items-start gap-3">
+                        <div className="w-3.5 h-3.5 rounded-full bg-green-500 shrink-0 mt-0.5 ring-2 ring-background z-10 relative" />
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-green-600 leading-none mb-0.5">Arrival</p>
+                          <p className="text-sm font-medium text-green-700">{arrival}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           );
