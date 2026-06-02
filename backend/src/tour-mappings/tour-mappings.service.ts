@@ -53,6 +53,31 @@ export class TourMappingsService {
     });
   }
 
+  /**
+   * Returns all Shopify products for a store, enriched with their tour mapping (if any).
+   * Used to populate the Tour select in order detail.
+   */
+  async getStoreTourOptions(storeId: string): Promise<
+    { shopifyProductId: string; title: string; tourMappingId: string | null; tourCode: string | null }[]
+  > {
+    const [products, mappings] = await Promise.all([
+      this.getStoreProducts(storeId),
+      this.mappingsRepository.find({ where: { storeId } }),
+    ]);
+
+    const mappingByProductId = new Map(mappings.map((m) => [m.shopifyProductId, m]));
+
+    return products.map((p) => {
+      const mapping = mappingByProductId.get(p.id) ?? null;
+      return {
+        shopifyProductId: p.id,
+        title: p.title,
+        tourMappingId: mapping?.id ?? null,
+        tourCode: mapping?.tourCode ?? null,
+      };
+    });
+  }
+
   /** Fetch all products from the Shopify store (used to populate the create-mapping dropdown) */
   async getStoreProducts(storeId: string): Promise<{ id: string; title: string }[]> {
     const store = await this.shopifyStoresRepository.findOne({ where: { internalName: storeId } });

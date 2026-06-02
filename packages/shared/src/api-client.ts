@@ -352,6 +352,11 @@ import { isApiError } from './types';
 
     listByStore: (storeId: string) =>
       client.get<TourMapping[]>(`/tour-mappings/by-store/${encodeURIComponent(storeId)}`),
+
+    tourOptions: (storeId: string) =>
+      client.get<{ shopifyProductId: string; title: string; tourMappingId: string | null; tourCode: string | null }[]>(
+        `/tour-mappings/tour-options/${encodeURIComponent(storeId)}`,
+      ),
   
     getById: (id: string) =>
       client.get<TourMapping>(`/tour-mappings/${id}`),

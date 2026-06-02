@@ -255,7 +255,7 @@ export class OrdersService {
       );
     }
 
-    const order = await this.ordersRepository.findOne({ where: { id } });
+    const order = await this.ordersRepository.findOne({ where: { id }, relations: ['tourMapping'] });
 
     if (!order) {
       throw new NotFoundException(`Order with ID ${id} not found`);

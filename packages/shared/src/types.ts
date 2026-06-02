@@ -112,6 +112,7 @@ export interface Order {
   shopifyOrderId: string;
   shopifyOrderNumber: string; // "DS4493-26"
   shopifyLineItemId: string;
+  shopifyProductId: string | null;
   lineItemIndex: number;
   storeId: string; // "EN" | "ES"
   shopifyCreatedAt: string; // ISO timestamp
@@ -130,6 +131,13 @@ export interface Order {
   pax: number;
   tourCode: string | null;
   tourMappingId: string | null;
+  tourMapping?: {
+    id: string;
+    productTitle: string | null;
+    tourCode: string | null;
+    shopifyProductId: string;
+    storeId: string;
+  } | null;
   tourTitle: string;
   tourType: TourType | null;
   campType: string | null;

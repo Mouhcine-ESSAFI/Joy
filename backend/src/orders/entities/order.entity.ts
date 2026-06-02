@@ -123,7 +123,7 @@ export class Order {
   @Index()
   tourMappingId: string | null;
 
-  @ManyToOne(() => TourCodeMapping, { nullable: true, eager: false, createForeignKeyConstraints: false })
+  @ManyToOne(() => TourCodeMapping, { nullable: true, eager: false })
   @JoinColumn({ name: 'tourMappingId' })
   tourMapping: TourCodeMapping;
 
