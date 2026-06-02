@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Headers, UseGuards, HttpCode, Logger } from '@nestjs/common';
+import { Controller, Post, Get, Param, Body, Headers, UseGuards, HttpCode, Logger } from '@nestjs/common';
 import { WebhooksService } from './webhooks.service';
 import { ShopifyWebhookGuard } from './webhooks.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -65,6 +65,13 @@ export class WebhooksController {
   @HttpCode(200)
   backfillProductIds() {
     return this.webhooksService.backfillProductIds();
+  }
+
+  @Get('orders/:orderId/metaobject-debug')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('Owner', 'Admin')
+  metaobjectDebug(@Param('orderId') orderId: string) {
+    return this.webhooksService.getMetaobjectRaw(orderId);
   }
 
   @Post('orders/cancelled')
