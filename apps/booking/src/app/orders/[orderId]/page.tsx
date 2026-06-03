@@ -8,7 +8,7 @@ import AppLayout from '@/components/layout/AppLayout';
 import { useOrder, useOrders, useSupplements, useTransportTypes, useRoomTypeRules, useOrderHistory } from '@/lib/hooks';
 type TourOption = { shopifyProductId: string; title: string; tourMappingId: string | null; tourCode: string | null };
 import api from '@/lib/api-client';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -33,7 +33,6 @@ import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
-import { useAuthContext } from '@/context/AuthContext';
 
 const DRIVER_FIELD_LABELS: Record<string, string> = {
   tourDate: 'Tour Date', tourHour: 'Tour Hour', pax: 'Passengers',
@@ -182,167 +181,10 @@ function normalizeTransportCode(v: unknown) {
   return t;
 }
 
-function MetaobjectDebugTab({ orderId }: { orderId: string }) {
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set(['root']));
-
-  const fetchDebug = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await api.maintenance.getMetaobjectDebug(orderId);
-      setData(result);
-    } catch (e: any) {
-      setError(e.message ?? 'Failed to fetch');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const toggle = (path: string) => {
-    setExpandedPaths((prev) => {
-      const next = new Set(prev);
-      if (next.has(path)) next.delete(path);
-      else next.add(path);
-      return next;
-    });
-  };
-
-  const renderValue = (val: any, path: string, depth = 0): ReactNode => {
-    if (val === null || val === undefined) {
-      return <span className="text-muted-foreground italic">null</span>;
-    }
-    if (typeof val === 'boolean') {
-      return <span className="text-blue-500">{String(val)}</span>;
-    }
-    if (typeof val !== 'object') {
-      return <span className="text-green-700 dark:text-green-400 break-all">{String(val)}</span>;
-    }
-    if (Array.isArray(val)) {
-      if (val.length === 0) return <span className="text-muted-foreground">[]</span>;
-      const isOpen = expandedPaths.has(path);
-      return (
-        <span>
-          <button onClick={() => toggle(path)} className="text-xs font-mono text-blue-600 dark:text-blue-400 hover:underline mr-1">
-            {isOpen ? '▼' : '▶'} [{val.length}]
-          </button>
-          {isOpen && (
-            <div className="pl-4 border-l border-border ml-1 mt-1 space-y-1">
-              {val.map((item, i) => (
-                <div key={i} className="flex gap-1">
-                  <span className="text-muted-foreground text-xs">{i}:</span>
-                  {renderValue(item, `${path}.${i}`, depth + 1)}
-                </div>
-              ))}
-            </div>
-          )}
-        </span>
-      );
-    }
-    const keys = Object.keys(val);
-    if (keys.length === 0) return <span className="text-muted-foreground">{'{}'}</span>;
-    const isOpen = expandedPaths.has(path);
-    return (
-      <span>
-        <button onClick={() => toggle(path)} className="text-xs font-mono text-blue-600 dark:text-blue-400 hover:underline mr-1">
-          {isOpen ? '▼' : '▶'} {'{'}…{'}'}
-        </button>
-        {isOpen && (
-          <div className="pl-4 border-l border-border ml-1 mt-1 space-y-1">
-            {keys.map((k) => (
-              <div key={k} className="flex gap-1 flex-wrap">
-                <span className="text-orange-600 dark:text-orange-400 font-mono text-xs shrink-0">{k}:</span>
-                {renderValue(val[k], `${path}.${k}`, depth + 1)}
-              </div>
-            ))}
-          </div>
-        )}
-      </span>
-    );
-  };
-
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between pb-3">
-        <div>
-          <CardTitle className="text-base">Metaobject Debug</CardTitle>
-          <p className="text-sm text-muted-foreground mt-1">Raw Shopify itinerary metaobject — use this to find correct field names for stops</p>
-        </div>
-        <Button type="button" variant="outline" size="sm" onClick={fetchDebug} disabled={loading}>
-          {loading ? 'Loading…' : 'Fetch Raw Data'}
-        </Button>
-      </CardHeader>
-      {error && (
-        <CardContent>
-          <p className="text-sm text-destructive">{error}</p>
-        </CardContent>
-      )}
-      {data && (
-        <CardContent className="font-mono text-xs space-y-3">
-          <div className="grid grid-cols-2 gap-2 p-3 rounded-md bg-muted text-xs">
-            <div><span className="font-semibold">Order:</span> {data.orderNumber}</div>
-            <div><span className="font-semibold">Store:</span> {data.storeId}</div>
-            <div><span className="font-semibold">Product ID:</span> {data.shopifyProductId ?? 'none'}</div>
-            <div><span className="font-semibold">Line Item ID:</span> {data.shopifyLineItemId ?? 'none'}</div>
-            <div className="col-span-2"><span className="font-semibold">Itinerary GID:</span> {data.itineraryGid ?? <span className="text-destructive">NOT FOUND — no itinerary metafield on this order</span>}</div>
-          </div>
-
-          {data.storedMetafields?.length > 0 && (
-            <div>
-              <p className="font-semibold text-foreground mb-1">Stored Metafields ({data.storedMetafields.length}):</p>
-              <div className="space-y-1 pl-2">
-                {data.storedMetafields.map((m: any, i: number) => (
-                  <div key={i} className="flex gap-2">
-                    <span className="text-orange-600 dark:text-orange-400">{m.namespace}.{m.key}</span>
-                    <span className="text-green-700 dark:text-green-400 break-all">{m.value}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {data.freshMetafields?.length > 0 && (
-            <div>
-              <p className="font-semibold text-foreground mb-1">Fresh Metafields from Shopify ({data.freshMetafields.length}):</p>
-              <div className="space-y-1 pl-2">
-                {data.freshMetafields.map((m: any, i: number) => (
-                  <div key={i} className="flex gap-2">
-                    <span className="text-orange-600 dark:text-orange-400">{m.namespace}.{m.key}</span>
-                    <span className="text-green-700 dark:text-green-400 break-all">{m.value}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {data.metaobjectRaw && (
-            <div>
-              <p className="font-semibold text-foreground mb-1">Raw GraphQL Response:</p>
-              <div className="p-3 rounded-md bg-muted overflow-auto max-h-[600px]">
-                {renderValue(data.metaobjectRaw, 'root')}
-              </div>
-            </div>
-          )}
-
-          {!data.itineraryGid && (
-            <p className="text-destructive text-sm p-3 bg-destructive/10 rounded-md">
-              No itinerary GID found. This order has no <code>detail.itinerary</code> metafield stored — either the product has no itinerary metafield, or <code>backfillProductIds</code> + <code>backfillOrders</code> need to run first.
-            </p>
-          )}
-        </CardContent>
-      )}
-    </Card>
-  );
-}
-
 export default function OrderDetailsPage() {
   const params = useParams();
   const router = useRouter();
   const { toast } = useToast();
-  const { user: currentUser } = useAuthContext();
-  const isOwnerOrAdmin = currentUser?.role === 'Owner' || currentUser?.role === 'Admin';
 
   const orderId = typeof params?.orderId === 'string' ? params.orderId : '';
   const invalidOrderId = !orderId;
@@ -849,11 +691,6 @@ export default function OrderDetailsPage() {
                     <TabsTrigger value="driver-history" className="data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none border-b-2 border-transparent rounded-none px-3 py-2 text-sm font-medium text-muted-foreground transition-none focus-visible:ring-0">
                       Driver History
                     </TabsTrigger>
-                    {isOwnerOrAdmin && (
-                      <TabsTrigger value="metaobject-debug" className="data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none border-b-2 border-transparent rounded-none px-3 py-2 text-sm font-medium text-muted-foreground transition-none focus-visible:ring-0">
-                        Stops Debug
-                      </TabsTrigger>
-                    )}
                   </TabsList>
                 </div>
               </div>
@@ -1525,11 +1362,6 @@ export default function OrderDetailsPage() {
                 <DriverHistoryTab orderId={orderId} orderNumber={order.shopifyOrderNumber} />
               </TabsContent>
 
-              {isOwnerOrAdmin && (
-                <TabsContent value="metaobject-debug">
-                  <MetaobjectDebugTab orderId={orderId} />
-                </TabsContent>
-              )}
 
               <Card>
                 <CardHeader>

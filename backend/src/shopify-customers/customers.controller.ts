@@ -2,9 +2,12 @@ import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { CustomersService } from './customers.service';
 import { CustomerFilterDto } from './dto/customer-filter.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 
 @Controller('customers')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('Owner', 'Admin', 'Travel Agent', 'Finance')
 export class CustomersController {
   constructor(private readonly customersService: CustomersService) {}
 

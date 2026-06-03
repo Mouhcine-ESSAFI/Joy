@@ -459,9 +459,6 @@ import { isApiError } from './types';
 
     backfillProductIds: () =>
       client.post<{ updated: number; skipped: number }>('/webhooks/shopify/backfill-product-ids'),
-
-    getMetaobjectDebug: (orderId: string) =>
-      client.get<any>(`/webhooks/shopify/orders/${orderId}/metaobject-debug`),
   };
 
   // ============================================
