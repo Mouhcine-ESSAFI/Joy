@@ -325,19 +325,34 @@ export default function NewOrderForm() {
                   <FormField control={form.control} name="tourDate" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Tour Date *</FormLabel>
-                      <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button variant="outline" className={cn('w-full pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}>
-                              {field.value ? format(field.value, 'dd-MM-yy') : <span>Pick a date</span>}
-                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar mode="single" selected={field.value} onSelect={(d) => { field.onChange(d); setCalendarOpen(false); }} initialFocus />
-                        </PopoverContent>
-                      </Popover>
+                      {/* Mobile: native date picker */}
+                      <FormControl className="sm:hidden">
+                        <Input
+                          type="date"
+                          value={field.value ? format(field.value, 'yyyy-MM-dd') : ''}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            field.onChange(v ? new Date(v + 'T12:00:00') : null);
+                          }}
+                          className="w-full"
+                        />
+                      </FormControl>
+                      {/* Desktop: Radix calendar popover */}
+                      <div className="hidden sm:block">
+                        <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button type="button" variant="outline" className={cn('w-full pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}>
+                                {field.value ? format(field.value, 'dd-MM-yy') : <span>Pick a date</span>}
+                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start" avoidCollisions collisionPadding={8}>
+                            <Calendar mode="single" selected={field.value} onSelect={(d) => { field.onChange(d); setCalendarOpen(false); }} autoFocus />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
                       <FormMessage />
                     </FormItem>
                   )} />
