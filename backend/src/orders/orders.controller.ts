@@ -9,6 +9,8 @@ import {
   UseGuards,
   Query,
   Req,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -66,6 +68,19 @@ export class OrdersController {
       },
       user, // ⭐ Pass user to service
     );
+  }
+
+  @Get('duplicates')
+  @Roles('Owner')
+  findDuplicates() {
+    return this.ordersService.findDuplicates();
+  }
+
+  @Delete('duplicates')
+  @Roles('Owner')
+  @HttpCode(HttpStatus.OK)
+  deleteDuplicates(@Body() body: { ids: string[] }) {
+    return this.ordersService.deleteDuplicates(body.ids);
   }
 
   @Get(':id')

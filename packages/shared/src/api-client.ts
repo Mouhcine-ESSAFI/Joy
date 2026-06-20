@@ -214,6 +214,13 @@ import { isApiError } from './types';
     async delete<T>(endpoint: string): Promise<T> {
       return this.request<T>(endpoint, { method: 'DELETE' });
     }
+
+    async deleteWithBody<T>(endpoint: string, data: any): Promise<T> {
+      return this.request<T>(endpoint, {
+        method: 'DELETE',
+        body: JSON.stringify(data),
+      });
+    }
   }
   
   const client = new HttpClient(API_BASE_URL);
@@ -459,6 +466,21 @@ import { isApiError } from './types';
 
     backfillProductIds: () =>
       client.post<{ updated: number; skipped: number }>('/webhooks/shopify/backfill-product-ids'),
+
+    findDuplicates: () =>
+      client.get<{
+        totalGroups: number;
+        totalDuplicates: number;
+        groups: Array<{
+          shopifyOrderId: string;
+          lineItemIndex: number;
+          keep: { id: string; shopifyOrderId: string; shopifyOrderNumber: string; lineItemIndex: number; customerName: string; tourDate: string; tourCode: string; createdAt: string };
+          duplicates: { id: string; shopifyOrderId: string; shopifyOrderNumber: string; lineItemIndex: number; customerName: string; tourDate: string; tourCode: string; createdAt: string }[];
+        }>;
+      }>('/orders/duplicates'),
+
+    deleteDuplicates: (ids: string[]) =>
+      client.deleteWithBody<{ deleted: number }>('/orders/duplicates', { ids }),
   };
 
   // ============================================

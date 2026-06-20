@@ -6,7 +6,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Order, OrderStatus } from './entities/order.entity'; // ⭐ Import OrderStatus enum
 import { OrderHistory, OrderHistoryType } from './entities/order-history.entity'; // ⭐ Add this
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -565,5 +565,60 @@ export class OrdersService {
       supplementLabel: label,
       supplementAmount: amount,
     });
+  }
+
+  async findDuplicates(): Promise<{
+    totalGroups: number;
+    totalDuplicates: number;
+    groups: Array<{
+      shopifyOrderId: string;
+      lineItemIndex: number;
+      keep: Partial<Order>;
+      duplicates: Partial<Order>[];
+    }>;
+  }> {
+    const rows: { shopifyOrderId: string; lineItemIndex: string; ids: string[] }[] =
+      await this.ordersRepository.query(`
+        SELECT "shopifyOrderId", "lineItemIndex", array_agg(id ORDER BY "createdAt" ASC) as ids
+        FROM orders
+        GROUP BY "shopifyOrderId", "lineItemIndex"
+        HAVING COUNT(*) > 1
+      `);
+
+    if (!rows.length) return { totalGroups: 0, totalDuplicates: 0, groups: [] };
+
+    const allIds = rows.flatMap((r) => r.ids);
+    const orders = await this.ordersRepository.find({
+      where: { id: In(allIds) },
+      select: ['id', 'shopifyOrderId', 'shopifyOrderNumber', 'lineItemIndex', 'customerName', 'tourDate', 'tourCode', 'createdAt'],
+    });
+
+    const orderMap = new Map(orders.map((o) => [o.id, o]));
+
+    const groups = rows.map((row) => {
+      const [keepId, ...dupIds] = row.ids;
+      return {
+        shopifyOrderId: row.shopifyOrderId,
+        lineItemIndex: Number(row.lineItemIndex),
+        keep: orderMap.get(keepId)!,
+        duplicates: dupIds.map((id) => orderMap.get(id)!).filter(Boolean),
+      };
+    });
+
+    return {
+      totalGroups: groups.length,
+      totalDuplicates: groups.reduce((sum, g) => sum + g.duplicates.length, 0),
+      groups,
+    };
+  }
+
+  async deleteDuplicates(ids: string[]): Promise<{ deleted: number }> {
+    if (!ids.length) return { deleted: 0 };
+    await this.ordersRepository
+      .createQueryBuilder()
+      .delete()
+      .whereInIds(ids)
+      .execute();
+    return { deleted: ids.length };
   }
 }

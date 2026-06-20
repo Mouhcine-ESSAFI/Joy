@@ -16,7 +16,16 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuthContext } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useUnsavedChanges } from '@/hooks/use-unsaved-changes';
-import { ArrowLeft, Save, Shield, Eye, EyeOff, Trash2, RefreshCw, TriangleAlert } from 'lucide-react';
+import { ArrowLeft, Save, Shield, Eye, EyeOff, Trash2, RefreshCw, TriangleAlert, ScanSearch, CheckCircle2 } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -60,6 +69,33 @@ export default function OwnerProfilePage() {
   const [isResettingSync, setIsResettingSync] = useState(false);
   const [isBackfilling, setIsBackfilling] = useState(false);
   const [isBackfillingProductIds, setIsBackfillingProductIds] = useState(false);
+
+  type DuplicateOrderRow = {
+    id: string;
+    shopifyOrderId: string;
+    shopifyOrderNumber: string;
+    lineItemIndex: number;
+    customerName: string;
+    tourDate: string;
+    tourCode: string;
+    createdAt: string;
+  };
+  type DuplicateGroup = {
+    shopifyOrderId: string;
+    lineItemIndex: number;
+    keep: DuplicateOrderRow;
+    duplicates: DuplicateOrderRow[];
+  };
+  type DuplicatesResult = {
+    totalGroups: number;
+    totalDuplicates: number;
+    groups: DuplicateGroup[];
+  };
+
+  const [duplicatesOpen, setDuplicatesOpen] = useState(false);
+  const [isDuplicatesLoading, setIsDuplicatesLoading] = useState(false);
+  const [isDeletingDuplicates, setIsDeletingDuplicates] = useState(false);
+  const [duplicatesData, setDuplicatesData] = useState<DuplicatesResult | null>(null);
 
   const isOwner = currentUser?.role === UserRole.OWNER;
 
@@ -148,6 +184,37 @@ export default function OwnerProfilePage() {
       toast({ variant: 'destructive', title: 'Reset Failed', description: e.message });
     } finally {
       setIsResettingSync(false);
+    }
+  }
+
+  async function handleFindDuplicates() {
+    setIsDuplicatesLoading(true);
+    setDuplicatesData(null);
+    setDuplicatesOpen(true);
+    try {
+      const result = await api.maintenance.findDuplicates();
+      setDuplicatesData(result);
+    } catch (e: any) {
+      toast({ variant: 'destructive', title: 'Scan Failed', description: e.message });
+      setDuplicatesOpen(false);
+    } finally {
+      setIsDuplicatesLoading(false);
+    }
+  }
+
+  async function handleDeleteDuplicates() {
+    if (!duplicatesData?.groups.length) return;
+    const ids = duplicatesData.groups.flatMap((g) => g.duplicates.map((d) => d.id));
+    setIsDeletingDuplicates(true);
+    try {
+      const result = await api.maintenance.deleteDuplicates(ids);
+      toast({ title: 'Duplicates Deleted', description: `${result.deleted} duplicate order${result.deleted !== 1 ? 's' : ''} removed.` });
+      setDuplicatesOpen(false);
+      setDuplicatesData(null);
+    } catch (e: any) {
+      toast({ variant: 'destructive', title: 'Delete Failed', description: e.message });
+    } finally {
+      setIsDeletingDuplicates(false);
     }
   }
 
@@ -454,10 +521,95 @@ export default function OwnerProfilePage() {
                   {isBackfillingProductIds ? 'Processing…' : 'Backfill Product IDs'}
                 </Button>
               </div>
+
+              <Separator />
+
+              {/* Find & delete duplicate orders */}
+              <div className="flex items-start justify-between gap-4 pt-2">
+                <div>
+                  <p className="text-sm font-medium">Find Duplicate Orders</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Scan for orders sharing the same Shopify order ID and line-item index. The oldest copy is kept; extras can be deleted.</p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0"
+                  disabled={isDuplicatesLoading}
+                  onClick={handleFindDuplicates}
+                >
+                  <ScanSearch className={`mr-2 h-3.5 w-3.5 ${isDuplicatesLoading ? 'animate-pulse' : ''}`} />
+                  {isDuplicatesLoading ? 'Scanning…' : 'Scan for Duplicates'}
+                </Button>
+              </div>
             </CardContent>
           </Card>
         )}
       </div>
+      {/* Duplicates dialog */}
+      <Dialog open={duplicatesOpen} onOpenChange={(open) => { if (!isDeletingDuplicates) setDuplicatesOpen(open); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Duplicate Order Scan</DialogTitle>
+            <DialogDescription>
+              Orders are grouped by Shopify order ID + line-item index. The earliest record is kept; duplicates are shown below.
+            </DialogDescription>
+          </DialogHeader>
+
+          {isDuplicatesLoading && (
+            <div className="flex items-center justify-center py-10 text-sm text-muted-foreground gap-2">
+              <ScanSearch className="h-4 w-4 animate-pulse" />
+              Scanning orders…
+            </div>
+          )}
+
+          {!isDuplicatesLoading && duplicatesData && duplicatesData.totalDuplicates === 0 && (
+            <div className="flex flex-col items-center justify-center py-10 gap-2 text-sm text-muted-foreground">
+              <CheckCircle2 className="h-8 w-8 text-green-500" />
+              <p className="font-medium text-green-700 dark:text-green-400">No duplicates found</p>
+              <p>All orders are unique. Your data is clean.</p>
+            </div>
+          )}
+
+          {!isDuplicatesLoading && duplicatesData && duplicatesData.totalDuplicates > 0 && (
+            <>
+              <p className="text-sm font-medium">
+                Found <span className="text-destructive">{duplicatesData.totalDuplicates} duplicate{duplicatesData.totalDuplicates !== 1 ? 's' : ''}</span> across {duplicatesData.totalGroups} group{duplicatesData.totalGroups !== 1 ? 's' : ''}.
+              </p>
+              <ScrollArea className="max-h-72 rounded-md border">
+                <div className="p-3 space-y-3">
+                  {duplicatesData.groups.map((group) => (
+                    <div key={`${group.shopifyOrderId}-${group.lineItemIndex}`} className="text-xs space-y-1">
+                      <p className="font-semibold text-muted-foreground uppercase tracking-wide">
+                        #{group.keep.shopifyOrderNumber} — item {group.lineItemIndex}
+                      </p>
+                      <div className="flex items-center gap-2 rounded bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-900 px-2 py-1">
+                        <span className="text-green-700 dark:text-green-400 font-medium shrink-0">Keep</span>
+                        <span className="truncate">{group.keep.customerName} · {group.keep.tourDate} · {group.keep.tourCode}</span>
+                      </div>
+                      {group.duplicates.map((dup) => (
+                        <div key={dup.id} className="flex items-center gap-2 rounded bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 px-2 py-1">
+                          <span className="text-destructive font-medium shrink-0">Delete</span>
+                          <span className="truncate">{dup.customerName} · {dup.tourDate} · {dup.tourCode}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setDuplicatesOpen(false)} disabled={isDeletingDuplicates}>
+                  Cancel
+                </Button>
+                <Button variant="destructive" onClick={handleDeleteDuplicates} disabled={isDeletingDuplicates}>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  {isDeletingDuplicates ? 'Deleting…' : `Delete ${duplicatesData.totalDuplicates} duplicate${duplicatesData.totalDuplicates !== 1 ? 's' : ''}`}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <AlertDialog open={showPrompt}>
         <AlertDialogContent>
           <AlertDialogHeader>
