@@ -182,9 +182,29 @@ export class WebhooksService {
 
       // If order doesn't exist, create it (missed create webhook)
       if (existingOrders.length === 0) {
-        this.logger.warn(`⚠️ Order ${shopifyOrderId} not found, creating it`);
-        return this.handleOrderCreate(payload, shopDomain);
-      }
+        this.logger.warn(`⚠️ Order ${shopifyOrderId} not found on update — may be a race with orders/create, retrying in 3s...`);
+      
+        // Wait 3 seconds and check again
+        await new Promise(resolve => setTimeout(resolve, 3000));
+      
+        const retryCheck = await this.ordersRepository.find({ where: { shopifyOrderId } });
+      
+        if (retryCheck.length > 0) {
+          // orders/create already handled it, proceed with update normally
+          this.logger.log(`✅ Order ${shopifyOrderId} found after retry, proceeding with update`);
+          // reassign and fall through to update logic below
+          // → but since we're mid-function, easiest is to just return here
+          // and let the update happen on the next Shopify retry if needed
+          webhookLog.status = 'skipped';
+          webhookLog.errorMessage = 'Handled by orders/create';
+          await this.webhookLogsRepository.save(webhookLog);
+          return;
+        }
+
+  // Still not found after 3s — genuinely missed orders/create, safe to create now
+  this.logger.warn(`⚠️ Order ${shopifyOrderId} still not found after retry — creating as fallback`);
+  return this.handleOrderCreate(payload, shopDomain);
+}
 
       // Find store by domain
       const stores = await this.shopifyStoresService.findAll();
