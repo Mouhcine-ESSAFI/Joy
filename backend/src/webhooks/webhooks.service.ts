@@ -250,7 +250,11 @@ export class WebhooksService {
           // customerPhone is intentionally excluded — users edit it manually in the booking app
           // and Shopify often sends null or stale values that would overwrite their edits
           shopifyProductId: lineItem.productId ?? null,
-          tourDate: lineItem.tourDate ? lineItem.tourDate.toISOString().split('T')[0] : null,
+          // tourDate: only overwrite from Shopify if the order doesn't already have one set
+          // manually. Staff-set dates must survive subsequent Shopify webhooks (e.g., tag edits).
+          tourDate: existingOrder.tourDate
+            ? existingOrder.tourDate
+            : (lineItem.tourDate ? lineItem.tourDate.toISOString().split('T')[0] : null),
           tourHour: lineItem.tourHour,
           pax: lineItem.pax || 1,
           tourTitle: lineItem.tourTitle,

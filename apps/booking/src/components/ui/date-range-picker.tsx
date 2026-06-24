@@ -59,7 +59,6 @@ export function DatePickerWithRange({
           style={{ maxWidth: 'calc(100vw - 1rem)' }}
         >
           <Calendar
-            initialFocus
             mode="range"
             defaultMonth={date?.from}
             selected={date}

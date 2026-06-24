@@ -189,7 +189,7 @@ export default function OrderDetailsPage() {
   const orderId = typeof params?.orderId === 'string' ? params.orderId : '';
   const invalidOrderId = !orderId;
 
-  const { order, loading: orderLoading, error: orderError } = useOrder(orderId);
+  const { order, loading: orderLoading, error: orderError, refetch: refetchOrder } = useOrder(orderId);
   const { total: customerOrdersTotal } = useOrders(
     order?.customerEmail ? { search: order.customerEmail, pageSize: 1 } : undefined
   );
@@ -397,7 +397,7 @@ export default function OrderDetailsPage() {
         description: `Order ${order?.shopifyOrderNumber} saved.`,
       });
       form.reset(values);
-      router.refresh();
+      await refetchOrder();
     } catch (e: any) {
       toast({
         title: 'Update Failed',
@@ -723,18 +723,29 @@ export default function OrderDetailsPage() {
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Tour Date</FormLabel>
-                            {/* Mobile: native date picker — reliable on iOS/Android */}
-                            <FormControl className="sm:hidden">
-                              <Input
+                            {/* Mobile: styled button + invisible native date input overlay */}
+                            <div className="relative sm:hidden">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className={cn('w-full pl-3 text-left font-normal pointer-events-none', !field.value && 'text-muted-foreground')}
+                                tabIndex={-1}
+                                aria-hidden="true"
+                              >
+                                {field.value ? format(field.value, 'dd-MM-yy') : <span>Pick a date</span>}
+                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                              </Button>
+                              <input
                                 type="date"
                                 value={field.value ? format(field.value, 'yyyy-MM-dd') : ''}
                                 onChange={(e) => {
                                   const v = e.target.value;
                                   field.onChange(v ? new Date(v + 'T12:00:00') : null);
                                 }}
-                                className="w-full"
+                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                aria-label="Tour Date"
                               />
-                            </FormControl>
+                            </div>
                             {/* Desktop: Radix calendar popover */}
                             <div className="hidden sm:block">
                               <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>

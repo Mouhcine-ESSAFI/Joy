@@ -325,18 +325,29 @@ export default function NewOrderForm() {
                   <FormField control={form.control} name="tourDate" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Tour Date *</FormLabel>
-                      {/* Mobile: native date picker */}
-                      <FormControl className="sm:hidden">
-                        <Input
+                      {/* Mobile: styled button + invisible native date input overlay */}
+                      <div className="relative sm:hidden">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className={cn('w-full pl-3 text-left font-normal pointer-events-none', !field.value && 'text-muted-foreground')}
+                          tabIndex={-1}
+                          aria-hidden="true"
+                        >
+                          {field.value ? format(field.value, 'dd-MM-yy') : <span>Pick a date</span>}
+                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                        </Button>
+                        <input
                           type="date"
                           value={field.value ? format(field.value, 'yyyy-MM-dd') : ''}
                           onChange={(e) => {
                             const v = e.target.value;
                             field.onChange(v ? new Date(v + 'T12:00:00') : null);
                           }}
-                          className="w-full"
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                          aria-label="Tour Date"
                         />
-                      </FormControl>
+                      </div>
                       {/* Desktop: Radix calendar popover */}
                       <div className="hidden sm:block">
                         <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>

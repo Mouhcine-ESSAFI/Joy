@@ -162,32 +162,44 @@ export function useOrder(id: string | null) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  // Initial load — shows loading state (triggers skeleton)
+  const fetchOrder = useCallback(async () => {
     if (!id) {
       setOrder(null);
       setLoading(false);
       return;
     }
-
-    const fetchOrder = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await api.orders.getById(id);
-        setOrder(data);
-      } catch (err: any) {
-        setError(err.message || 'Failed to fetch order');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchOrder();
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await api.orders.getById(id);
+      setOrder(data);
+    } catch (err: any) {
+      setError(err.message || 'Failed to fetch order');
+    } finally {
+      setLoading(false);
+    }
   }, [id]);
+
+  // Silent refetch — updates order state without triggering loading skeleton
+  const refetchOrder = useCallback(async () => {
+    if (!id) return;
+    try {
+      setError(null);
+      const data = await api.orders.getById(id);
+      setOrder(data);
+    } catch (err: any) {
+      setError(err.message || 'Failed to fetch order');
+    }
+  }, [id]);
+
+  useEffect(() => {
+    fetchOrder();
+  }, [fetchOrder]);
 
   const updateOrder = async (updates: Partial<Order>) => {
     if (!id) return;
-    
+
     try {
       const updated = await api.orders.update(id, updates);
       setOrder(updated);
@@ -202,6 +214,7 @@ export function useOrder(id: string | null) {
     loading,
     error,
     updateOrder,
+    refetch: refetchOrder,
   };
 }
 
