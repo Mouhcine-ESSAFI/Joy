@@ -891,9 +891,18 @@ export default function OrdersClient() {
 
                   {/* Row 3 — secondary filters 2-col grid */}
                   <div className="grid grid-cols-2 gap-2">
-                    {/* Date range — native date inputs */}
-                    <div className="relative flex items-center">
-                      <CalendarIcon className="pointer-events-none absolute left-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                    {/* Date range — two native date inputs styled as buttons */}
+                    <div className="relative">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className={cn('w-full justify-start gap-2 font-normal text-xs pointer-events-none', !filters.dateRange?.from && 'text-muted-foreground')}
+                        tabIndex={-1}
+                        aria-hidden="true"
+                      >
+                        <CalendarIcon className="h-3.5 w-3.5 shrink-0" />
+                        {filters.dateRange?.from ? format(filters.dateRange.from, 'dd-MM-yy') : 'From'}
+                      </Button>
                       <input
                         type="date"
                         value={toISODateOnly(filters.dateRange?.from) ?? ''}
@@ -907,12 +916,21 @@ export default function OrdersClient() {
                           });
                           setPage(1);
                         }}
-                        className="h-9 w-full rounded-md border border-input bg-background pl-8 pr-2 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                         aria-label="From date"
                       />
                     </div>
-                    <div className="relative flex items-center">
-                      <CalendarIcon className="pointer-events-none absolute left-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                    <div className="relative">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className={cn('w-full justify-start gap-2 font-normal text-xs pointer-events-none', !filters.dateRange?.to && 'text-muted-foreground')}
+                        tabIndex={-1}
+                        aria-hidden="true"
+                      >
+                        <CalendarIcon className="h-3.5 w-3.5 shrink-0" />
+                        {filters.dateRange?.to ? format(filters.dateRange.to, 'dd-MM-yy') : 'To'}
+                      </Button>
                       <input
                         type="date"
                         value={toISODateOnly(filters.dateRange?.to) ?? ''}
@@ -926,7 +944,7 @@ export default function OrdersClient() {
                           });
                           setPage(1);
                         }}
-                        className="h-9 w-full rounded-md border border-input bg-background pl-8 pr-2 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                         aria-label="To date"
                       />
                     </div>
