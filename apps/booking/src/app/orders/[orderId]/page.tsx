@@ -1,6 +1,7 @@
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, PlusCircle, Save, CalendarIcon, CreditCard, Trash2, Printer } from 'lucide-react';
@@ -549,7 +550,18 @@ export default function OrderDetailsPage() {
                           )}
                           {customerOrdersTotal > 0 && (
                             <span className="font-medium text-foreground">
-                              {customerOrdersTotal} order{customerOrdersTotal !== 1 ? 's' : ''} · {order.storeId}
+                              {order.customerEmail && customerOrdersTotal > 1 ? (
+                                <Link
+                                  href={`/orders?search=${encodeURIComponent(order.customerEmail)}`}
+                                  className="text-primary underline decoration-dotted hover:no-underline"
+                                  title={`View all orders from ${order.customerEmail}`}
+                                >
+                                  {customerOrdersTotal} order{customerOrdersTotal !== 1 ? 's' : ''}
+                                </Link>
+                              ) : (
+                                <>{customerOrdersTotal} order{customerOrdersTotal !== 1 ? 's' : ''}</>
+                              )}
+                              {' · '}{order.storeId}
                             </span>
                           )}
                         </p>
