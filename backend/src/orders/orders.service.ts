@@ -194,16 +194,33 @@ export class OrdersService {
     }
 
     if (params.search && params.search !== 'undefined') {
-      query.andWhere(
-        `(
-          LOWER(order.customerName) LIKE LOWER(:search) OR
-          LOWER(order.customerEmail) LIKE LOWER(:search) OR
-          LOWER(order.shopifyOrderNumber) LIKE LOWER(:search) OR
-          LOWER(order.tourTitle) LIKE LOWER(:search) OR
-          LOWER(order.customerPhone) LIKE LOWER(:search)
-        )`,
-        { search: `%${params.search}%` },
-      );
+      // Each whitespace-separated term must match at least one searchable field,
+      // so "john casablanca" finds a John whose pickup is in Casablanca. Terms are
+      // AND-ed (narrowing), fields are OR-ed (broad). % and _ are escaped so a
+      // literal underscore in an email doesn't act as a wildcard.
+      const SEARCH_FIELDS = [
+        'order.customerName',
+        'order.customerEmail',
+        'order.customerPhone',
+        'order.shopifyOrderNumber',
+        'order.tourTitle',
+        'order.tourCode',
+        'order.pickupLocation',
+      ];
+      const terms = params.search
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 6); // cap so a pasted paragraph can't build a monster query
+
+      terms.forEach((term, i) => {
+        const key = `search${i}`;
+        const escaped = term.replace(/[\\%_]/g, (c) => `\\${c}`);
+        const clause = SEARCH_FIELDS
+          .map((f) => `LOWER(${f}) LIKE LOWER(:${key}) ESCAPE '\\'`)
+          .join(' OR ');
+        query.andWhere(`(${clause})`, { [key]: `%${escaped}%` });
+      });
     }
 
     const hasDateFilter =
