@@ -5,7 +5,7 @@
  * Works with React, Next.js, or any React framework
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import api from './api-client';
 import { useOrdersSocket } from './use-orders-socket';
 import type {
@@ -95,17 +95,25 @@ export function useOrders(params?: OrdersListParams) {
   const [error, setError] = useState<string | null>(null);
   const [lastFetchTime, setLastFetchTime] = useState<number>(Date.now());
 
+  // Guards against out-of-order responses: while typing in a search box, an
+  // earlier slow request must never overwrite the results of a later one.
+  const requestSeq = useRef(0);
+
   const fetchOrders = useCallback(async (silent = false) => {
+    const seq = ++requestSeq.current;
+    const isStale = () => seq !== requestSeq.current;
     try {
       if (!silent) setLoading(true);
       setError(null);
       const response = await api.orders.list(params);
+      if (isStale()) return;
       setData(response);
       setLastFetchTime(Date.now());
     } catch (err: any) {
+      if (isStale()) return;
       setError(err.message || 'Failed to fetch orders');
     } finally {
-      setLoading(false);
+      if (!isStale()) setLoading(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [JSON.stringify(params)]);
