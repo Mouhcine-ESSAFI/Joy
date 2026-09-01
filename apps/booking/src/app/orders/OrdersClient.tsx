@@ -114,6 +114,9 @@ const OrderCard = ({ order, allOrders }: { order: Order, allOrders: Order[] }) =
         <Card className="hover:bg-muted/50 cursor-pointer" onClick={handleCardClick}>
             <CardHeader className="flex-row items-start justify-between gap-4 pb-3">
                 <div className="flex-1 space-y-1.5">
+                    {order.shopifyOrderNumber && (
+                        <div className="text-xs font-medium text-muted-foreground">{order.shopifyOrderNumber}</div>
+                    )}
                     <CardTitle className="text-base font-semibold leading-none">
                         <CustomerCell order={order} allOrders={allOrders} />
                     </CardTitle>
@@ -178,9 +181,20 @@ export default function OrdersClient() {
   const [statusTab, setStatusTab] = React.useState<string>(
     () => searchParams?.get('status') || 'all'
   );
+  // `search` drives the input (instant), `debouncedSearch` drives the query (300ms)
   const [search, setSearch] = React.useState(
     () => searchParams?.get('search') || ''
   );
+  const [debouncedSearch, setDebouncedSearch] = React.useState(search);
+
+  React.useEffect(() => {
+    if (search === debouncedSearch) return;
+    const t = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(t);
+  }, [search, debouncedSearch]);
+
+  // True while the user has typed something the results don't reflect yet
+  const isSearchPending = search !== debouncedSearch;
 
   const [filters, setFilters] = React.useState(() => {
     const from = searchParams?.get('from');
@@ -199,14 +213,26 @@ export default function OrdersClient() {
   React.useEffect(() => {
     const params = new URLSearchParams();
     if (statusTab !== 'all') params.set('status', statusTab);
-    if (search.trim()) params.set('search', search.trim());
+    if (debouncedSearch.trim()) params.set('search', debouncedSearch.trim());
     if (filters.storeId !== 'all') params.set('storeId', filters.storeId);
     if (filters.tourType !== 'all') params.set('tourType', filters.tourType);
     if (filters.transport !== 'all') params.set('transport', filters.transport);
     if (filters.dateRange?.from) params.set('from', toISODateOnly(filters.dateRange.from)!);
     if (filters.dateRange?.to) params.set('to', toISODateOnly(filters.dateRange.to)!);
     router.replace(`?${params.toString()}`, { scroll: false });
-  }, [statusTab, search, filters, router]);
+  }, [statusTab, debouncedSearch, filters, router]);
+
+  // Filter params shared by the table query and the export query, so an export
+  // always covers exactly what the current filters match — not just the page shown.
+  const filterParams = React.useMemo(() => ({
+    storeId: filters.storeId === 'all' ? undefined : filters.storeId,
+    status: statusTab === 'all' ? undefined : statusTab as OrderStatus,
+    tourType: filters.tourType === 'all' ? undefined : filters.tourType as TourType,
+    transport: filters.transport === 'all' ? undefined : filters.transport,
+    startDate: toISODateOnly(filters.dateRange?.from),
+    endDate: toISODateOnly(filters.dateRange?.to),
+    search: debouncedSearch.trim() || undefined,
+  }), [filters, statusTab, debouncedSearch]);
 
   const {
     orders,
@@ -218,13 +244,7 @@ export default function OrdersClient() {
   } = useOrders({
     page,
     pageSize,
-    storeId: filters.storeId === 'all' ? undefined : filters.storeId,
-    status: statusTab === 'all' ? undefined : statusTab as OrderStatus,
-    tourType: filters.tourType === 'all' ? undefined : filters.tourType as TourType,
-    transport: filters.transport === 'all' ? undefined : filters.transport,
-    startDate: toISODateOnly(filters.dateRange?.from),
-    endDate: toISODateOnly(filters.dateRange?.to),
-    search: search.trim() || undefined,
+    ...filterParams,
   });
 
   const { stores: shopifyStores, error: storesError } = useShopifyStores();
@@ -275,6 +295,31 @@ export default function OrdersClient() {
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = useLocalStorage<VisibilityState>('orders-column-visibility', {});
   const [rowSelection, setRowSelection] = React.useState({});
+  // "Select all N matching the filters" — spans every page, not just the rows on screen
+  const [selectAllMatching, setSelectAllMatching] = React.useState(false);
+  const [isExporting, setIsExporting] = React.useState(false);
+
+  // Any filter change invalidates a cross-page selection
+  React.useEffect(() => {
+    setSelectAllMatching(false);
+    setRowSelection({});
+  }, [filterParams]);
+
+  // Pull every order matching the current filters, page by page
+  const fetchAllFiltered = React.useCallback(async (): Promise<Order[]> => {
+    const CHUNK = 200;
+    const MAX_ROWS = 10000; // safety valve so a huge filter can't hang the browser
+    const all: Order[] = [];
+    let currentPage = 1;
+    let pages = 1;
+    do {
+      const res = await api.orders.list({ ...filterParams, page: currentPage, pageSize: CHUNK } as any);
+      all.push(...(res.orders ?? []));
+      pages = res.totalPages || 1;
+      currentPage += 1;
+    } while (currentPage <= pages && all.length < MAX_ROWS);
+    return all;
+  }, [filterParams]);
 
   // helper: patch an order
   const patchOrder = React.useCallback(
@@ -294,13 +339,50 @@ export default function OrdersClient() {
     [refetchOrders, toast],
   );
 
-  const handleExport = (format: 'csv' | 'pdf') => {
+  const handleExport = async (format: 'csv' | 'pdf') => {
+    if (isExporting) return;
+
     const selectedRows = table.getFilteredSelectedRowModel().rows;
-    const rowsToExport = selectedRows.length > 0
-      ? selectedRows.map((r) => r.original)
-      : (orders ?? []);
+    // An explicit per-row selection wins; otherwise export everything the filters
+    // match (all pages), never just the rows currently rendered.
+    const useAllFiltered = selectAllMatching || selectedRows.length === 0;
+
+    // Open the print window up-front, while we still have the user gesture —
+    // popup blockers reject a window.open() that happens after an await.
+    let printWindow: Window | null = null;
+    if (format === 'pdf') {
+      printWindow = window.open('', '_blank');
+      printWindow?.document.write(
+        '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Preparing export…</title></head>' +
+        '<body style="font-family:Arial,sans-serif;padding:24px;color:#111">Preparing export…</body></html>',
+      );
+    }
+
+    let rowsToExport: any[];
+    setIsExporting(true);
+    try {
+      if (useAllFiltered) {
+        if (total > pageSize) {
+          toast({ title: 'Preparing export', description: `Fetching ${total} order(s)…` });
+        }
+        rowsToExport = await fetchAllFiltered();
+      } else {
+        rowsToExport = selectedRows.map((r) => r.original);
+      }
+    } catch (e: any) {
+      setIsExporting(false);
+      printWindow?.close();
+      toast({
+        title: 'Export failed',
+        description: e?.message || 'Could not load orders for export.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setIsExporting(false);
 
     if (!rowsToExport.length) {
+      printWindow?.close();
       toast({ title: 'Nothing to export', description: 'No orders to export.' });
       return;
     }
@@ -369,15 +451,24 @@ export default function OrdersClient() {
   <meta charset="utf-8">
   <title>Orders Export — ${new Date().toLocaleDateString('en-GB')}</title>
   <style>
+    @page { size: A4 landscape; margin: 10mm; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: Arial, sans-serif; font-size: 11px; color: #111; padding: 20px; }
     h1 { font-size: 16px; margin-bottom: 4px; }
     p { font-size: 11px; color: #666; margin-bottom: 16px; }
-    table { width: 100%; border-collapse: collapse; }
+    table { width: 100%; border-collapse: collapse; table-layout: auto; }
     th { background: #f3f4f6; text-align: left; padding: 6px 8px; border: 1px solid #e5e7eb; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
     td { padding: 5px 8px; border: 1px solid #e5e7eb; vertical-align: top; }
     tr:nth-child(even) td { background: #f9fafb; }
-    @media print { body { padding: 0; } }
+    /* Repeat the header on every printed page and never split a row */
+    thead { display: table-header-group; }
+    tfoot { display: table-footer-group; }
+    tr { page-break-inside: avoid; break-inside: avoid; }
+    @media print {
+      body { padding: 0; }
+      th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      tr:nth-child(even) td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
   </style>
 </head>
 <body>
@@ -396,13 +487,21 @@ export default function OrdersClient() {
 </body>
 </html>`;
 
-      const win = window.open('', '_blank');
-      if (win) {
-        win.document.write(html);
-        win.document.close();
-        win.focus();
-        setTimeout(() => win.print(), 500);
+      const win = printWindow ?? window.open('', '_blank');
+      if (!win) {
+        toast({
+          title: 'Popup blocked',
+          description: 'Allow popups for this site to export as PDF.',
+          variant: 'destructive',
+        });
+        return;
       }
+
+      win.document.open();
+      win.document.write(html);
+      win.document.close();
+      win.focus();
+      setTimeout(() => win.print(), 500);
 
       toast({ title: 'PDF Ready', description: `Print dialog opened for ${rowsToExport.length} order(s).` });
     }
@@ -424,15 +523,25 @@ export default function OrdersClient() {
       id: 'select',
       header: ({ table }) => (
         <Checkbox
-          checked={table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && 'indeterminate')}
-          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+          checked={
+            selectAllMatching ||
+            table.getIsAllPageRowsSelected() ||
+            (table.getIsSomePageRowsSelected() && 'indeterminate')
+          }
+          onCheckedChange={(value) => {
+            if (!value) setSelectAllMatching(false);
+            table.toggleAllPageRowsSelected(!!value);
+          }}
           aria-label="Select all"
         />
       ),
       cell: ({ row }) => (
         <Checkbox
           checked={row.getIsSelected()}
-          onCheckedChange={(value) => row.toggleSelected(!!value)}
+          onCheckedChange={(value) => {
+            setSelectAllMatching(false);
+            row.toggleSelected(!!value);
+          }}
           aria-label="Select row"
         />
       ),
@@ -642,6 +751,17 @@ export default function OrdersClient() {
 
   const NON_NAVIGATING_COLUMNS = ['select', 'transport', 'customerName', 'status', 'tourCode'];
 
+  // Export scope: an explicit row selection, otherwise everything the filters match
+  const selectedRowCount = table.getFilteredSelectedRowModel().rows.length;
+  const exportsAllFiltered = selectAllMatching || selectedRowCount === 0;
+  const exportScopeLabel = exportsAllFiltered
+    ? `Exports all ${total} filtered order(s)`
+    : `Exports ${selectedRowCount} selected order(s)`;
+  // Offer "select all matching" once the page is fully selected but more pages exist
+  const showSelectAllBanner =
+    !isMobile && !isLoading && total > orders.length &&
+    (selectAllMatching || (orders.length > 0 && table.getIsAllPageRowsSelected()));
+
   const renderDesktopSkeleton = () => {
     const visibleColumnCount = table.getVisibleLeafColumns().length;
     return [...Array(10)].map((_, i) => (
@@ -842,11 +962,17 @@ export default function OrdersClient() {
               statusTab !== 'all' ||
               search.trim() !== '';
 
+            // Clearing skips the debounce — an explicit action should feel immediate
+            function clearSearch() {
+              setSearch('');
+              setDebouncedSearch('');
+              setPage(1);
+            }
+
             function clearFilters() {
               setFilters({ dateRange: undefined, storeId: 'all', tourType: 'all', transport: 'all' });
               setStatusTab('all');
-              setSearch('');
-              setPage(1);
+              clearSearch();
             }
 
             const statusTabs = (
@@ -869,19 +995,47 @@ export default function OrdersClient() {
 
             if (isMobile) {
               return (
-                <div className="space-y-2 mb-4">
+                <div className="space-y-3 mb-4 pt-3">
                   {/* Row 1 — search + clear */}
-                  <div className="flex items-center gap-2">
-                    <div className="relative flex-1">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                      <Input
-                        placeholder="Search customer, email, order..."
-                        value={search}
-                        onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                        className="pl-10 h-9"
-                      />
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="orders-search-mobile"
+                      className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                    >
+                      <Search className="h-3.5 w-3.5" />
+                      Search orders
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <div className="relative flex-1">
+                        {isSearchPending
+                          ? <Loader2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-primary animate-spin pointer-events-none" />
+                          : <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />}
+                        {/* text-base keeps iOS from zooming in on focus */}
+                        <Input
+                          id="orders-search-mobile"
+                          placeholder="Name, email, phone, order # or tour"
+                          value={search}
+                          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                          className="pl-10 pr-9 h-11 text-base rounded-lg border-2 border-primary/30 bg-background shadow-sm focus-visible:border-primary"
+                        />
+                        {search && (
+                          <button
+                            type="button"
+                            onClick={clearSearch}
+                            aria-label="Clear search"
+                            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1 text-muted-foreground hover:bg-muted"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                      {clearBtn}
                     </div>
-                    {clearBtn}
+                    {debouncedSearch.trim() && !isLoading && (
+                      <p className="text-xs text-muted-foreground">
+                        {total} result{total === 1 ? '' : 's'} for “{debouncedSearch.trim()}”
+                      </p>
+                    )}
                   </div>
 
                   {/* Row 2 — status chips scrollable */}
@@ -1015,14 +1169,33 @@ export default function OrdersClient() {
                 </div>
 
                 {/* Row 2 — search */}
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                  <Input
-                    placeholder="Search customer, email, order..."
-                    value={search}
-                    onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                    className="pl-10 h-9"
-                  />
+                <div className="flex items-center gap-3">
+                  <div className="relative flex-1">
+                    {isSearchPending
+                      ? <Loader2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-primary animate-spin pointer-events-none" />
+                      : <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />}
+                    <Input
+                      placeholder="Search by name, email, phone, order # or tour — multiple words narrow the results"
+                      value={search}
+                      onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                      className="pl-10 pr-9 h-9"
+                    />
+                    {search && (
+                      <button
+                        type="button"
+                        onClick={clearSearch}
+                        aria-label="Clear search"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1 text-muted-foreground hover:bg-muted"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                  {debouncedSearch.trim() && !isLoading && (
+                    <p className="shrink-0 text-xs text-muted-foreground">
+                      {total} result{total === 1 ? '' : 's'}
+                    </p>
+                  )}
                 </div>
               </div>
             );
@@ -1074,18 +1247,24 @@ export default function OrdersClient() {
                                     size="sm"
                                     variant="outline"
                                     className="h-10 gap-1"
+                                    disabled={isExporting}
                                 >
-                                    <Download className="h-3.5 w-3.5" />
+                                    {isExporting
+                                      ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                      : <Download className="h-3.5 w-3.5" />}
                                     <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
                                     Export
                                     </span>
                                 </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => handleExport('csv')}>
+                                <DropdownMenuLabel className="font-normal text-xs text-muted-foreground">
+                                    {exportScopeLabel}
+                                </DropdownMenuLabel>
+                                <DropdownMenuItem disabled={isExporting} onClick={() => handleExport('csv')}>
                                     Export as CSV
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleExport('pdf')}>
+                                <DropdownMenuItem disabled={isExporting} onClick={() => handleExport('pdf')}>
                                     Export as PDF
                                 </DropdownMenuItem>
                                 </DropdownMenuContent>
@@ -1099,6 +1278,37 @@ export default function OrdersClient() {
                             )}
                         </div>
                     </div>
+
+                    {showSelectAllBanner && (
+                        <div className="mb-4 flex flex-wrap items-center justify-center gap-2 rounded-md border bg-muted/50 px-4 py-2.5 text-sm">
+                            {selectAllMatching ? (
+                                <>
+                                    <span>All <strong>{total}</strong> orders matching the current filters are selected for export.</span>
+                                    <Button
+                                        variant="link"
+                                        size="sm"
+                                        className="h-auto p-0"
+                                        onClick={() => { setSelectAllMatching(false); table.resetRowSelection(); }}
+                                    >
+                                        Clear selection
+                                    </Button>
+                                </>
+                            ) : (
+                                <>
+                                    <span>All <strong>{orders.length}</strong> orders on this page are selected.</span>
+                                    <Button
+                                        variant="link"
+                                        size="sm"
+                                        className="h-auto p-0"
+                                        onClick={() => setSelectAllMatching(true)}
+                                    >
+                                        Select all {total} orders matching the filters
+                                    </Button>
+                                </>
+                            )}
+                        </div>
+                    )}
+
                     <div className="rounded-md border">
                         <Table>
                             <TableHeader>
@@ -1153,7 +1363,7 @@ export default function OrdersClient() {
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-4">
               <div className="text-sm text-muted-foreground">
                 Page {page} / {totalPages} • {total} orders
-                {!isMobile && ` • ${table.getFilteredSelectedRowModel().rows.length} selected`}
+                {!isMobile && (selectAllMatching ? ` • all ${total} selected` : ` • ${selectedRowCount} selected`)}
               </div>
 
               <div className="flex items-center gap-2">
@@ -1197,8 +1407,8 @@ export default function OrdersClient() {
             </div>
 
             <BulkActionsBar
-              selectedCount={table.getFilteredSelectedRowModel().rows.length}
-              onClearSelection={() => table.resetRowSelection()}
+              selectedCount={selectedRowCount}
+              onClearSelection={() => { setSelectAllMatching(false); table.resetRowSelection(); }}
               onBulkUpdate={async (field, value) => {
                 const selectedRows = table.getFilteredSelectedRowModel().rows;
                 if (!selectedRows.length) return;
